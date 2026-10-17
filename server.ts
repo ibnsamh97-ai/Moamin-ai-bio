@@ -401,16 +401,34 @@ app.post('/api/gemini/maps-grounding', async (req, res) => {
   });
 });
 
-// 5. Multi-turn Scientific Platform Agent Endpoint (gemini-4-argon / gemini-3.8-flash / gemini-3.1-flash-lite)
-app.post('/api/gemini/chat', async (req, res) => {
-  const {
-    messages,
-    modelTier = 'gemini-3.8-flash',
-    agentRoleInstruction = '',
-    contextSummary = '',
-    experimentSummary = [],
-  } = req.body;
+function normalizeGeminiContents(messages: any[]) {
+  const cleaned: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
 
+  for (const m of messages) {
+    const text = String(m?.text || m?.content || '').trim();
+    if (!text) continue;
+    const role: 'user' | 'model' = m?.role === 'assistant' || m?.role === 'model' ? 'model' : 'user';
+
+    // Gemini multi-turn contents must start with a 'user' turn
+    if (cleaned.length === 0 && role === 'model') {
+      continue;
+    }
+
+    if (cleaned.length > 0 && cleaned[cleaned.length - 1].role === role) {
+      cleaned[cleaned.length - 1].parts[0].text += `\n${text}`;
+    } else {
+      cleaned.push({ role, parts: [{ text }] });
+    }
+  }
+
+  return cleaned;
+}
+
+function buildChatSystemInstruction(
+  agentRoleInstruction: string,
+  contextSummary: string,
+  experimentSummary: any[]
+): string {
   const expContext =
     Array.isArray(experimentSummary) && experimentSummary.length > 0
       ? experimentSummary
@@ -421,16 +439,31 @@ app.post('/api/gemini/chat', async (req, res) => {
           .join('\n')
       : '';
 
-  const systemInstruction = `أنت الوكيل العلمي الذكي المعتمد لمنصة "EcoBio AI | النظام الذكي للمعالجة الحيوية ورصد التلوث البيئي" الخاصة بالباحث "مؤمن خلف عبدالله — قسم علوم الحياة / كلية التربية للعلوم الصرفة / جامعة تكريت".
-الرابط الرسمي للمنصة: https://moamin-ai-bio.vercel.app/
-دورك التخصصي الحالي (System Role): ${
+  return `أنت مساعد ذكاء اصطناعي علمي وتفاعلي (Gemini AI) في منصة "EcoBio AI".
+مهمتك الأساسية إجراء محادثة ذكاء اصطناعي حقيقية، طبيعية، وذكية مع المستخدم:
+- فكّر بعمق في رسالة المستخدم وأجب على سؤاله أو حديثه مباشرةً دون تكرار مقدمات تعريفية محفوظة أو قوالب جاهزة.
+- لا تكرر ذكر اسم المنصة أو الباحث أو الرابط إلا إذا سألك المستخدم عنها صراحةً.
+- حاور المستخدم بمرونة وذكاء: إذا طرح سؤالاً علمياً أو تحليلياً أو عاماً، قدم إجابة علمية مفصلة، منطقية، ومبتكرة.
+- تخصصك الحالي: ${
     agentRoleInstruction ||
-    'وكيل المعالجة الحيوية للمياه، الإحصاء الحيوي (ANOVA / t-test P <= 0.05)، سعة الامتزاز (qe)، ومؤشر جودة المياه (WQI).'
+    'خبير في المعالجة الحيوية للمياه، علوم الحياة، الكيمياء البيئية، والإحصاء الحيوي.'
   }
-بيانات التجارب الحية المسجلة في المنصة:
+- بيانات التجارب الحية المتاحة في المنصة للاستعانة بها عند الحاجة فقط:
 ${contextSummary}
 ${expContext}
-أجب على رسائل الباحث أو الزوار بدقة علمية رصينة باللغة العربية وبدون استخدام أي إيموجي.`;
+- معلومات مرجعية عند السؤال عنها فقط: المنصة بإعداد الباحث مؤمن خلف عبدالله (قسم علوم الحياة / كلية التربية للعلوم الصرفة / جامعة تكريت)، والرابط الرسمي https://moamin-ai-bio.vercel.app/
+- التزم بعدم استخدام أي إيموجي (Emojis) في الرد.`;
+}
+
+// 5. Real-Time Streaming Gemini Conversational Agent Endpoint (SSE)
+app.post('/api/gemini/chat-stream', async (req, res) => {
+  const {
+    messages,
+    modelTier = 'gemini-3.8-flash',
+    agentRoleInstruction = '',
+    contextSummary = '',
+    experimentSummary = [],
+  } = req.body;
 
   const validModel =
     modelTier === 'gemini-4-argon' ||
@@ -439,14 +472,102 @@ ${expContext}
       ? modelTier
       : 'gemini-3.8-flash';
 
-  const ai = getGeminiClient();
-  if (ai && Array.isArray(messages) && messages.length > 0) {
-    try {
-      const formattedContents = messages.map((m: any) => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: String(m.text || m.content || '') }],
-      }));
+  const systemInstruction = buildChatSystemInstruction(
+    agentRoleInstruction,
+    contextSummary,
+    experimentSummary
+  );
 
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+
+  const ai = getGeminiClient();
+  const formattedContents = Array.isArray(messages)
+    ? normalizeGeminiContents(messages)
+    : [];
+
+  if (ai && formattedContents.length > 0) {
+    const modelsToTry =
+      validModel === 'gemini-4-argon'
+        ? ['gemini-4-argon', 'gemini-3.8-flash']
+        : [validModel, 'gemini-3.8-flash'];
+
+    for (const modelName of modelsToTry) {
+      try {
+        const config: Record<string, any> = {
+          systemInstruction,
+        };
+        if (modelName === 'gemini-4-argon') {
+          config.thinkingConfig = {
+            thinkingLevel: ThinkingLevel.HIGH,
+          };
+        }
+
+        const streamResponse = await ai.models.generateContentStream({
+          model: modelName,
+          contents: formattedContents,
+          config,
+        });
+
+        let streamedAny = false;
+        for await (const chunk of streamResponse) {
+          const textChunk = chunk.text || '';
+          if (textChunk) {
+            streamedAny = true;
+            res.write(
+              `data: ${JSON.stringify({
+                chunk: textChunk,
+                modelUsed: modelName,
+              })}\n\n`
+            );
+          }
+        }
+
+        if (streamedAny) {
+          res.write(`data: ${JSON.stringify({ done: true, modelUsed: modelName })}\n\n`);
+          return res.end();
+        }
+      } catch (err) {
+        // Try next model in fallback chain
+      }
+    }
+  }
+
+  res.write(`data: ${JSON.stringify({ error: 'stream_unavailable', done: true })}\n\n`);
+  return res.end();
+});
+
+// 6. Multi-turn Scientific Platform Agent Endpoint (JSON)
+app.post('/api/gemini/chat', async (req, res) => {
+  const {
+    messages,
+    modelTier = 'gemini-3.8-flash',
+    agentRoleInstruction = '',
+    contextSummary = '',
+    experimentSummary = [],
+  } = req.body;
+
+  const validModel =
+    modelTier === 'gemini-4-argon' ||
+    modelTier === 'gemini-3.8-flash' ||
+    modelTier === 'gemini-3.1-flash-lite'
+      ? modelTier
+      : 'gemini-3.8-flash';
+
+  const systemInstruction = buildChatSystemInstruction(
+    agentRoleInstruction,
+    contextSummary,
+    experimentSummary
+  );
+
+  const ai = getGeminiClient();
+  const formattedContents = Array.isArray(messages)
+    ? normalizeGeminiContents(messages)
+    : [];
+
+  if (ai && formattedContents.length > 0) {
+    try {
       const useHighThinking = validModel === 'gemini-4-argon';
       const { text, modelUsed } = await generateWithFallback(
         ai,
@@ -461,7 +582,7 @@ ${expContext}
         modelUsed,
       });
     } catch (err) {
-      // Fall through to intelligent agent response if API key is not configured
+      // Fall through if API key is restricted
     }
   }
 

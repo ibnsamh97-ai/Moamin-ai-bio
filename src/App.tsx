@@ -172,14 +172,10 @@ export default function App() {
 
   return (
     <div className={darkMode ? 'dark' : ''}>
-      {/* 1. Iconic 3D Welcome Splash Screen (Brand Logo & Platform Title) */}
+      {/* 1. Iconic 2-Second Auto-Opening Welcome Splash Screen (Brand Logo & EcoBio AI) */}
       <WelcomeSplash3D
         isOpen={isSplashOpen}
         onEnterPlatform={() => setIsSplashOpen(false)}
-        onOpenSmartAssistant={() => {
-          setIsSplashOpen(false);
-          setIsChatOpen(true);
-        }}
       />
 
       <div
@@ -202,7 +198,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => setIsSplashOpen(true)}
-              title="عرض شاشة الترحيب والهوية"
+              title="EcoBio AI"
               className="w-10 h-10 rounded-xl bg-emerald-950 border border-emerald-500/40 flex items-center justify-center shrink-0 cursor-pointer hover:border-emerald-400 transition-colors"
             >
               <svg
@@ -239,18 +235,6 @@ export default function App() {
 
           {/* Global System Utilities (Single Clean Location) */}
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setIsSplashOpen(true)}
-              className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
-                darkMode
-                  ? 'border-slate-700 bg-slate-950 text-slate-200 hover:bg-slate-800'
-                  : 'border-slate-300 bg-slate-50 text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
-              <span>شاشة الترحيب</span>
-            </button>
 
             <button
               type="button"

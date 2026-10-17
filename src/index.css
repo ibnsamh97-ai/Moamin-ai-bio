@@ -23,6 +23,22 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Fix Tailwind v4 preflight breaking Leaflet map tiles & RTL positioning */
+.leaflet-container {
+  font-family: 'Cairo', sans-serif;
+  direction: ltr;
+  z-index: 10;
+  background-color: #0f172a;
+}
+
+.leaflet-container img,
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow {
+  max-width: none !important;
+  max-height: none !important;
+}
+
 /* Custom Leaflet popup styling for RTL Arabic */
 .leaflet-popup-content-wrapper {
   border-radius: 0.75rem;
@@ -32,7 +48,11 @@
   padding: 2px;
 }
 
-.leaflet-container {
+.leaflet-tooltip {
   font-family: 'Cairo', sans-serif;
-  z-index: 10;
+  direction: rtl;
+  text-align: right;
+  font-weight: 700;
+  border-radius: 0.5rem;
+  padding: 2px 8px;
 }

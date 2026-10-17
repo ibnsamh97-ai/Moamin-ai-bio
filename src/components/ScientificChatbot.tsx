@@ -5,9 +5,9 @@ import {
   Bot,
   User,
   BrainCircuit,
-  ShieldCheck,
   RotateCcw,
   Cpu,
+  Sparkles,
 } from 'lucide-react';
 import {
   ExperimentRecord,
@@ -23,6 +23,8 @@ export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   text: string;
+  isStreaming?: boolean;
+  thinkingStage?: string;
   modelBadge?: string;
   agentRoleLabel?: string;
 }
@@ -39,25 +41,25 @@ export const AGENT_ROLES = [
     id: 'bioremediation_agent',
     label: 'وكيل المعالجة الحيوية والامتزاز',
     instruction:
-      'أنت وكيل متخصص في المعالجة الحيوية للمياه، التخثر الحيوي ببذور المورينجا، والامتزاز بالطحالب المجهرية Chlorella والفحم الحيوي.',
+      'أنت خبير حواري ذكي في المعالجة الحيوية للمياه، التخثر الحيوي ببذور المورينجا، والامتزاز بالطحالب المجهرية Chlorella والفحم الحيوي.',
   },
   {
     id: 'biostats_agent',
     label: 'وكيل الإحصاء الحيوي (ANOVA & P ≤ 0.05)',
     instruction:
-      'أنت وكيل إحصاء حيوي متخصص في تحليل المكررات التجريبية (R1, R2, R3)، المتوسط الحسابي، الانحراف المعياري (±SD)، واختبارات t-test و ANOVA عند مستوى معنوية P <= 0.05.',
+      'أنت خبير حواري ذكي في الإحصاء الحيوي وتحليل المكررات التجريبية (R1, R2, R3)، المتوسط الحسابي، الانحراف المعياري (±SD)، واختبارات t-test و ANOVA.',
   },
   {
     id: 'tigris_wqi_agent',
     label: 'وكيل رصد نهر دجلة ومؤشر WQI',
     instruction:
-      'أنت وكيل رصد بيئي متخصص في تقييم جودة مياه نهر دجلة بمدينة تكريت وحساب المؤشر الموزون لجودة المياه (WQI) ومقارنتها مع المواصفة العراقية IQS 417 ومعايير WHO.',
+      'أنت خبير حواري ذكي في تقييم جودة مياه نهر دجلة بمدينة تكريت وحساب المؤشر الموزون لجودة المياه (WQI) ومقارنتها مع المواصفة العراقية IQS 417 ومعايير WHO.',
   },
   {
     id: 'academic_report_agent',
     label: 'وكيل صياغة المناقشة والتقارير العلمية',
     instruction:
-      'أنت وكيل أكاديمي متخصص في صياغة فصل النتائج والمناقشة العلمية وتفسير معادلات سعة الامتزاز (qe) وقانون التخفيف المختبري (C1V1 = C2V2).',
+      'أنت خبير حواري ذكي في صياغة المناقشة العلمية وتفسير معادلات سعة الامتزاز (qe) وقانون التخفيف المختبري (C1V1 = C2V2).',
   },
 ];
 
@@ -98,8 +100,8 @@ export const ScientificChatbot: React.FC<ScientificChatbotProps> = ({
     {
       id: 'welcome-agent-1',
       role: 'assistant',
-      text: 'مرحباً بك في وكيل منصة EcoBio AI الذكي (إعداد الباحث: مؤمن خلف عبدالله — قسم علوم الحياة / كلية التربية للعلوم الصرفة / جامعة تكريت). أنا وكيلك التفاعلي للرد على الرسائل والاستفسارات العلمية حول كفاءة الإزالة، الإحصاء الحيوي للمكررات (P ≤ 0.05)، سعة الامتزاز (qe)، ومؤشر جودة المياه (WQI). كيف يمكنني مساعدتك اليوم؟',
-      modelBadge: 'gemini-3.8-flash · EcoBio AI Agent',
+      text: 'مرحباً بك. أنا وكيل الذكاء الاصطناعي التفاعلي (Gemini AI) في منصة EcoBio AI. اطرح أي سؤال علمي أو استفسار بحثي وسأفكر وأجيبك مباشرةً في محادثة حية.',
+      modelBadge: 'gemini-3.8-flash · Gemini Live Chat',
       agentRoleLabel: AGENT_ROLES[0].label,
     },
   ]);
@@ -115,11 +117,54 @@ export const ScientificChatbot: React.FC<ScientificChatbotProps> = ({
       {
         id: `welcome-${Date.now()}`,
         role: 'assistant',
-        text: `تم بدء جلسة حوار جديدة مع (${selectedRole.label}) باستخدام النموذج (${selectedModel}). أرسل سؤالك أو رسالتك للرد عليها فوراً استناداً إلى بيانات المنصة.`,
-        modelBadge: `${selectedModel} · EcoBio AI Agent`,
+        text: `بدأت محادثة جديدة مع (${selectedRole.label}) عبر نموذج (${selectedModel}). اكتب سؤالك للبدء.`,
+        modelBadge: `${selectedModel} · Gemini Live Chat`,
         agentRoleLabel: selectedRole.label,
       },
     ]);
+  };
+
+  // Progressive live typing helper so the response always types smoothly word-by-word
+  const animateLiveTyping = async (
+    msgId: string,
+    fullText: string,
+    finalBadge: string
+  ) => {
+    const words = fullText.split(' ');
+    let current = '';
+    const step = Math.max(2, Math.ceil(words.length / 45));
+
+    for (let i = 0; i < words.length; i += step) {
+      current += (i === 0 ? '' : ' ') + words.slice(i, i + step).join(' ');
+      const snapshot = current;
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === msgId
+            ? {
+                ...m,
+                text: snapshot,
+                isStreaming: true,
+                thinkingStage: 'جاري الكتابة الحية عبر Gemini AI...',
+              }
+            : m
+        )
+      );
+      await new Promise((r) => setTimeout(r, 28));
+    }
+
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === msgId
+          ? {
+              ...m,
+              text: fullText,
+              isStreaming: false,
+              thinkingStage: undefined,
+              modelBadge: finalBadge,
+            }
+          : m
+      )
+    );
   };
 
   const sendQuestion = async (questionText: string) => {
@@ -132,12 +177,145 @@ export const ScientificChatbot: React.FC<ScientificChatbotProps> = ({
       text: trimmed,
     };
 
-    const updatedHistory = [...messages, userMsg];
-    setMessages(updatedHistory);
+    const assistantMsgId = `a-${Date.now() + 1}`;
+    const placeholderAssistantMsg: ChatMessage = {
+      id: assistantMsgId,
+      role: 'assistant',
+      text: '',
+      isStreaming: true,
+      thinkingStage: 'جاري التفكير العميق وتحليل السؤال عبر Gemini AI...',
+      modelBadge: `${selectedModel} · Gemini AI`,
+      agentRoleLabel: selectedRole.label,
+    };
+
+    const historyForApi = [...messages, userMsg];
+    setMessages([...historyForApi, placeholderAssistantMsg]);
     setInput('');
     setIsSending(true);
 
-    const builtInAgentReply = generateBuiltInExpertResponse(trimmed, {
+    const payload = {
+      messages: historyForApi
+        .filter((m) => m.id !== 'welcome-agent-1' && !m.id.startsWith('welcome-'))
+        .map((m) => ({
+          role: m.role,
+          text: m.text,
+          content: m.text,
+        })),
+      modelTier: selectedModel,
+      agentRoleInstruction: selectedRole.instruction,
+      experimentSummary: records.map((r) => ({
+        pollutant: r.pollutantName,
+        ci: r.ci,
+        cf: r.cf,
+        efficiency: r.efficiency,
+        treatment: r.treatmentType,
+      })),
+    };
+
+    // 1. Try real-time Server-Sent Events (SSE) Streaming from Gemini API
+    try {
+      const res = await fetch('/api/gemini/chat-stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok && res.body) {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
+        let accumulatedText = '';
+        let usedModel = selectedModel;
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          const lines = buffer.split('\n\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            const trimmedLine = line.trim();
+            if (!trimmedLine.startsWith('data:')) continue;
+            const jsonStr = trimmedLine.replace(/^data:\s*/, '');
+            try {
+              const evt = JSON.parse(jsonStr);
+              if (evt.modelUsed) usedModel = evt.modelUsed;
+              if (evt.chunk) {
+                accumulatedText += evt.chunk;
+                const snap = accumulatedText;
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMsgId
+                      ? {
+                          ...m,
+                          text: snap,
+                          isStreaming: true,
+                          thinkingStage: 'يفكر ويكتب الآن عبر Gemini AI...',
+                          modelBadge: `${usedModel} · Gemini Live Stream`,
+                        }
+                      : m
+                  )
+                );
+              }
+            } catch {
+              // Ignore malformed partial SSE line
+            }
+          }
+        }
+
+        if (accumulatedText.trim().length > 0) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMsgId
+                ? {
+                    ...m,
+                    text: accumulatedText.trim(),
+                    isStreaming: false,
+                    thinkingStage: undefined,
+                    modelBadge: `${usedModel} · Gemini AI`,
+                  }
+                : m
+            )
+          );
+          setIsSending(false);
+          return;
+        }
+      }
+    } catch {
+      // Proceed to standard JSON Gemini endpoint if stream interrupted
+    }
+
+    // 2. Fallback to standard JSON Gemini endpoint with live typing animation
+    try {
+      const res = await fetch('/api/gemini/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (
+          data.reply &&
+          String(data.reply).trim().length > 0 &&
+          !data.useClientAgentFallback
+        ) {
+          await animateLiveTyping(
+            assistantMsgId,
+            String(data.reply).trim(),
+            `${data.modelUsed || selectedModel} · Gemini AI`
+          );
+          setIsSending(false);
+          return;
+        }
+      }
+    } catch {
+      // Fall through if offline
+    }
+
+    // 3. Offline synthesis with live typing
+    const offlineReply = generateBuiltInExpertResponse(trimmed, {
       specialty: selectedRole.label,
       researchNotes: selectedRole.instruction,
       records,
@@ -148,62 +326,11 @@ export const ScientificChatbot: React.FC<ScientificChatbotProps> = ({
       optimalPh: 7.2,
     });
 
-    try {
-      const res = await fetch('/api/gemini/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: updatedHistory.map((m) => ({
-            role: m.role,
-            text: m.text,
-            content: m.text,
-          })),
-          modelTier: selectedModel,
-          agentRoleInstruction: selectedRole.instruction,
-          experimentSummary: records.map((r) => ({
-            pollutant: r.pollutantName,
-            ci: r.ci,
-            cf: r.cf,
-            efficiency: r.efficiency,
-            treatment: r.treatmentType,
-          })),
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (
-          data.reply &&
-          String(data.reply).trim().length > 0 &&
-          !data.useClientAgentFallback
-        ) {
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: `a-${Date.now()}`,
-              role: 'assistant',
-              text: data.reply,
-              modelBadge: `${data.modelUsed || selectedModel} · Gemini Agent`,
-              agentRoleLabel: selectedRole.label,
-            },
-          ]);
-          setIsSending(false);
-          return;
-        }
-      }
-    } catch {
-      // Seamless fallback to Built-In Platform Agent Engine
-    }
-
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: `a-${Date.now()}`,
-        role: 'assistant',
-        text: builtInAgentReply,
-        modelBadge: `${selectedModel} · EcoBio AI Agent`,
-        agentRoleLabel: selectedRole.label,
-      },
-    ]);
+    await animateLiveTyping(
+      assistantMsgId,
+      offlineReply,
+      `${selectedModel} · EcoBio AI`
+    );
     setIsSending(false);
   };
 
@@ -211,10 +338,10 @@ export const ScientificChatbot: React.FC<ScientificChatbotProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex justify-end bg-slate-950/70"
+      className="fixed inset-0 z-50 flex justify-end bg-slate-950/70 backdrop-blur-xs"
       role="dialog"
       aria-modal="true"
-      aria-label="وكيل المنصة الذكي للرد على الرسائل (Gemini Multi-Turn Agent)"
+      aria-label="وكيل المحادثة الذكي (Gemini Live Conversational AI)"
       data-testid="scientific-agent-drawer"
     >
       <div
@@ -233,11 +360,11 @@ export const ScientificChatbot: React.FC<ScientificChatbotProps> = ({
               </div>
               <div>
                 <h2 className="text-sm font-extrabold">
-                  وكيل منصة EcoBio AI الذكي للرد على الرسائل
+                  وكيل الذكاء الاصطناعي التفاعلي (Gemini AI Chat)
                 </h2>
                 <p className="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-semibold">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>محادثة متعددة الأدوار (Multi-Turn Gemini Agent)</span>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>يفكر بالكتابة الحية ويرد كمحادثة ذكاء اصطناعي مباشرة</span>
                 </p>
               </div>
             </div>
@@ -250,7 +377,7 @@ export const ScientificChatbot: React.FC<ScientificChatbotProps> = ({
                 className="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1 cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span>مسح</span>
+                <span>محادثة جديدة</span>
               </button>
               <button
                 type="button"
@@ -361,8 +488,22 @@ export const ScientificChatbot: React.FC<ScientificChatbotProps> = ({
                     : 'bg-slate-100 text-slate-800'
                 }`}
               >
-                {msg.text}
-                {msg.modelBadge && (
+                {/* Live Thinking Header when Gemini is actively reasoning/typing */}
+                {msg.isStreaming && msg.thinkingStage && (
+                  <div className="mb-2 pb-2 border-b border-emerald-500/20 flex items-center gap-2 text-[11px] font-bold text-emerald-400">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
+                    <span>{msg.thinkingStage}</span>
+                  </div>
+                )}
+
+                <div>
+                  {msg.text}
+                  {msg.isStreaming && (
+                    <span className="inline-block w-1.5 h-3.5 bg-emerald-400 align-middle mr-1 animate-pulse" />
+                  )}
+                </div>
+
+                {msg.modelBadge && !msg.isStreaming && (
                   <div className="mt-2 pt-1.5 border-t border-slate-200/40 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-[10px] font-mono text-emerald-500">
                     <span className="flex items-center gap-1">
                       <Cpu className="w-3 h-3" />
@@ -378,51 +519,11 @@ export const ScientificChatbot: React.FC<ScientificChatbotProps> = ({
               </div>
             </div>
           ))}
-
-          {isSending && (
-            <div className="text-xs text-emerald-500 font-mono px-3">
-              جاري صياغة رد الوكيل العلمي...
-            </div>
-          )}
           <div ref={threadEndRef} />
         </div>
 
-        {/* Quick Prompts & Message Input Form */}
-        <div className="p-4 border-t border-slate-200 dark:border-slate-800 space-y-2.5">
-          <div className="flex flex-wrap gap-1.5">
-            <button
-              type="button"
-              onClick={() =>
-                sendQuestion(
-                  'حلل إحصائياً نتائج المكررات الثلاثة (R1, R2, R3) ومعنوية الفروق عند P <= 0.05.'
-                )
-              }
-              className="px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-[11px] hover:bg-emerald-500/10 hover:text-emerald-500 transition-colors cursor-pointer"
-            >
-              تحليل الإحصاء الحيوي (P ≤ 0.05)
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                sendQuestion(
-                  'فسّر علمياً قيم سعة الامتزاز qe ومؤشر جودة المياه WQI الموحد.'
-                )
-              }
-              className="px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-[11px] hover:bg-emerald-500/10 hover:text-emerald-500 transition-colors cursor-pointer"
-            >
-              تفسير سعة الامتزاز qe و WQI
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                sendQuestion('ما هو رابط المنصة الرسمي المشفر في رمز QR Code؟')
-              }
-              className="px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-[11px] hover:bg-emerald-500/10 hover:text-emerald-500 transition-colors cursor-pointer"
-            >
-              رابط المنصة ورمز QR
-            </button>
-          </div>
-
+        {/* Message Input Form */}
+        <div className="p-4 border-t border-slate-200 dark:border-slate-800">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -431,7 +532,7 @@ export const ScientificChatbot: React.FC<ScientificChatbotProps> = ({
             className="flex gap-2"
           >
             <label htmlFor="chatbot-input" className="sr-only">
-              اكتب رسالتك لوكيل المنصة
+              اكتب رسالتك لوكيل Gemini
             </label>
             <input
               id="chatbot-input"
@@ -439,7 +540,7 @@ export const ScientificChatbot: React.FC<ScientificChatbotProps> = ({
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="اكتب رسالتك أو سؤالك العلمي ليرد عليك وكيل المنصة..."
+              placeholder="اكتب أي سؤال أو رسالة ليفكر ويرد عليك وكيل Gemini مباشرة..."
               className={`flex-1 rounded-lg border px-3 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
                 darkMode
                   ? 'bg-slate-950 border-slate-700 text-slate-100'
@@ -454,7 +555,7 @@ export const ScientificChatbot: React.FC<ScientificChatbotProps> = ({
               className="px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
             >
               <Send className="w-4 h-4" />
-              <span>إرسال</span>
+              <span>{isSending ? 'يفكر...' : 'إرسال'}</span>
             </button>
           </form>
         </div>

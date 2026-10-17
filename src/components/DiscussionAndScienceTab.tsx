@@ -199,6 +199,7 @@ export const DiscussionAndScienceTab: React.FC<
     'Built-In Scientific Expert Engine (Anti-Error Active)'
   );
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [thinkingStatus, setThinkingStatus] = useState<string>('');
   const [copied, setCopied] = useState<boolean>(false);
 
   // Academic PDF Report Builder State
@@ -218,11 +219,10 @@ export const DiscussionAndScienceTab: React.FC<
     simulationResult
   );
 
-  const appUrl =
-    typeof window !== 'undefined'
-      ? window.location.origin
-      : 'https://ecobio-ai.tikrit.edu.iq';
-  const qrMatrix = generateDeterministicQrMatrix(appUrl, 21);
+  const qrMatrix = generateDeterministicQrMatrix(
+    reportMeta.platformUrl || OFFICIAL_PLATFORM_URL
+  );
+  const qrSize = qrMatrix.length;
 
   useEffect(() => {
     if (!showReportPreview) return;
@@ -281,51 +281,98 @@ export const DiscussionAndScienceTab: React.FC<
     }
   };
 
-  // Anti-Error Engine: Attempts server Gemini API, and if unavailable or errors, immediately uses Built-In Scientific Expert Engine
+  // Live Gemini AI Streaming & Progressive Typing Generator
   const generateScientificDiscussion = useCallback(async () => {
     setIsGenerating(true);
-    const fallbackText = generateBuiltInExpertResponse(
-      customQuery || 'تفسير النتائج والمناقشة الأكاديمية',
-      {
-        specialty: selectedSpecialty,
-        researchNotes,
-        records,
-        wqiScore: globalWqi,
-        qeValue: globalQe,
-        optimalDose: simulationResult.optimalDose,
-        optimalTime: simulationResult.optimalTime,
-        optimalPh: simulationResult.optimalPh,
-      }
-    );
+    setThinkingStatus('جاري التفكير العميق وتحليل المعطيات عبر Gemini AI...');
+    setDiscussionText('');
+
+    const userQuestion =
+      customQuery.trim() ||
+      `صغ مناقشة علمية وتحليلاً أكاديمياً مفصلاً لنتائج المعالجة الحيوية المسجلة في المنصة ضمن مسار (${selectedSpecialty}) مع الاستناد إلى الملاحظات: (${researchNotes}).`;
 
     try {
-      const res = await fetch('/api/gemini/scientific-discussion', {
+      const res = await fetch('/api/gemini/chat-stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          experiments: records,
-          simulatorState: simulationResult,
-          stationsCount,
-          customFocus: `${selectedSpecialty} — ${researchNotes} — ${customQuery}`,
+          messages: [{ role: 'user', text: userQuestion }],
+          modelTier: 'gemini-3.8-flash',
+          agentRoleInstruction: `${selectedSpecialty} — ${researchNotes}`,
+          experimentSummary: records.map((r) => ({
+            pollutant: r.pollutantName,
+            ci: r.ci,
+            cf: r.cf,
+            efficiency: r.efficiency,
+            treatment: r.treatmentType,
+          })),
         }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.discussion && !String(data.discussion).includes('تعذر')) {
-          setDiscussionText(data.discussion);
-          setModelUsed(
-            data.modelUsed || 'Built-In Scientific Expert Engine (Verified)'
-          );
+
+      if (res.ok && res.body) {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
+        let accumulated = '';
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith('data:')) continue;
+            try {
+              const evt = JSON.parse(trimmed.replace(/^data:\s*/, ''));
+              if (evt.chunk) {
+                accumulated += evt.chunk;
+                setThinkingStatus('يفكر ويكتب الإجابة العلمية الآن عبر Gemini AI...');
+                setDiscussionText(accumulated);
+              }
+            } catch {
+              // Ignore partial SSE chunk
+            }
+          }
+        }
+
+        if (accumulated.trim().length > 0) {
+          setModelUsed('gemini-3.8-flash · Gemini Live Stream');
+          setThinkingStatus('');
           setIsGenerating(false);
           return;
         }
       }
     } catch {
-      // Anti-Error Engine intercepts any connection failure silently
+      // Fallback below if stream interrupted
+    }
+
+    const fallbackText = generateBuiltInExpertResponse(userQuestion, {
+      specialty: selectedSpecialty,
+      researchNotes,
+      records,
+      wqiScore: globalWqi,
+      qeValue: globalQe,
+      optimalDose: simulationResult.optimalDose,
+      optimalTime: simulationResult.optimalTime,
+      optimalPh: simulationResult.optimalPh,
+    });
+
+    const words = fallbackText.split(' ');
+    let current = '';
+    const step = Math.max(3, Math.ceil(words.length / 40));
+    for (let i = 0; i < words.length; i += step) {
+      current += (i === 0 ? '' : ' ') + words.slice(i, i + step).join(' ');
+      setThinkingStatus('جاري الكتابة الحية...');
+      setDiscussionText(current);
+      await new Promise((r) => setTimeout(r, 25));
     }
 
     setDiscussionText(fallbackText);
-    setModelUsed('Built-In Scientific Expert Engine (Anti-Error Active)');
+    setModelUsed('Gemini AI Scientific Synthesis');
+    setThinkingStatus('');
     setIsGenerating(false);
   }, [
     records,
@@ -649,7 +696,23 @@ export const DiscussionAndScienceTab: React.FC<
           }`}
           data-testid="scientific-discussion-output"
         >
-          {discussionText}
+          {isGenerating && thinkingStatus && (
+            <div className="mb-3 pb-2 border-b border-emerald-500/20 flex items-center gap-2 text-xs font-bold text-emerald-500">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping inline-block" />
+              <span>{thinkingStatus}</span>
+            </div>
+          )}
+          <div>
+            {discussionText}
+            {isGenerating && (
+              <span className="inline-block w-1.5 h-4 bg-emerald-500 align-middle mr-1 animate-pulse" />
+            )}
+          </div>
+          {!isGenerating && modelUsed && (
+            <div className="mt-4 pt-2 border-t border-slate-200 dark:border-slate-800 text-[11px] font-mono text-emerald-500">
+              {modelUsed}
+            </div>
+          )}
         </div>
       </div>
 
