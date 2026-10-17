@@ -1,0 +1,6 @@
+{
+  "name": "EcoBio AI | المنصة الذكية لتقييم المعالجة الحيوية ورصد التلوث البيئي",
+  "description": "منصة علمية ذكية لتقييم كفاءة المعالجة الحيوية للمياه ورصد التلوث البيئي في محافظة صلاح الدين - إعداد الباحث: مؤمن خلف عبدالله (قسم علوم الحياة).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
