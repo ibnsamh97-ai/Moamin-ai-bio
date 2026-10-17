@@ -8,11 +8,11 @@ import {
   Sun,
   Moon,
   Download,
-  MessageSquare,
+  Bot,
   Settings,
   Box,
   FlaskConical,
-  Award,
+  QrCode,
   Sparkles,
 } from 'lucide-react';
 import {
@@ -172,13 +172,13 @@ export default function App() {
 
   return (
     <div className={darkMode ? 'dark' : ''}>
-      {/* 1. Full-Screen 3D Welcome Splash Screen & Onboarding */}
+      {/* 1. Iconic 3D Welcome Splash Screen (Brand Logo & Platform Title) */}
       <WelcomeSplash3D
         isOpen={isSplashOpen}
         onEnterPlatform={() => setIsSplashOpen(false)}
         onOpenSmartAssistant={() => {
           setIsSplashOpen(false);
-          setActiveTab('discussion');
+          setIsChatOpen(true);
         }}
       />
 
@@ -189,115 +189,167 @@ export default function App() {
             : 'bg-slate-50 text-slate-900'
         }`}
       >
-        {/* Top Navigation Bar (Strict 3-Zone Top Bar Contract, Zero Emojis) */}
+        {/* Top Utility Header (Zero Duplication of Module Tabs) */}
         <header
-          className={`flex items-center justify-between gap-4 sm:gap-8 px-4 sm:px-6 py-4 border-b transition-colors ${
+          className={`flex flex-wrap items-center justify-between gap-4 px-4 sm:px-6 py-3.5 border-b transition-colors ${
             darkMode
               ? 'bg-slate-900/95 border-slate-800'
               : 'bg-white border-slate-200'
           }`}
         >
-          {/* Zone 1: Brand Wordmark */}
-          <a
-            href="#top"
-            onClick={(e) => {
-              e.preventDefault();
-              setActiveTab('calculator');
-            }}
-            className="text-lg font-extrabold tracking-tight text-emerald-600 dark:text-emerald-400 whitespace-nowrap shrink-0"
-          >
-            EcoBio AI
-          </a>
+          {/* Brand Logo + Wordmark */}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setIsSplashOpen(true)}
+              title="عرض شاشة الترحيب والهوية"
+              className="w-10 h-10 rounded-xl bg-emerald-950 border border-emerald-500/40 flex items-center justify-center shrink-0 cursor-pointer hover:border-emerald-400 transition-colors"
+            >
+              <svg
+                viewBox="0 0 80 80"
+                className="w-7 h-7"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+              >
+                <path
+                  d="M40 8C40 8 16 34 16 51C16 64.2548 26.7452 75 40 75C53.2548 75 64 64.2548 64 51C64 34 40 8 40 8Z"
+                  stroke="#10b981"
+                  strokeWidth="3"
+                  fill="rgba(16, 185, 129, 0.16)"
+                />
+                <polygon
+                  points="40,26 53,33.5 53,48.5 40,56 27,48.5 27,33.5"
+                  stroke="#38bdf8"
+                  strokeWidth="2.2"
+                  fill="rgba(6, 182, 212, 0.18)"
+                />
+                <circle cx="40" cy="41" r="5" fill="#10b981" />
+              </svg>
+            </button>
+            <div>
+              <span className="text-base sm:text-lg font-extrabold tracking-tight text-emerald-600 dark:text-emerald-400 block leading-none">
+                EcoBio AI
+              </span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">
+                جامعة تكريت · قسم علوم الحياة
+              </span>
+            </div>
+          </div>
 
-          {/* Zone 2: Clean Single-Line Navigation Links */}
-          <nav
-            aria-label="أقسام المنصة العلمية"
-            className="hidden lg:flex items-center gap-5 text-xs font-bold"
-          >
+          {/* Global System Utilities (Single Clean Location) */}
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => setActiveTab('calculator')}
-              className={`py-1 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                activeTab === 'calculator'
-                  ? 'text-emerald-600 dark:text-emerald-400 underline underline-offset-8 decoration-2'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              onClick={() => setIsSplashOpen(true)}
+              className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                darkMode
+                  ? 'border-slate-700 bg-slate-950 text-slate-200 hover:bg-slate-800'
+                  : 'border-slate-300 bg-slate-50 text-slate-700 hover:bg-slate-100'
               }`}
             >
-              الإحصاء الحيوي والكفاءة
+              <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
+              <span>شاشة الترحيب</span>
             </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('biolab3d')}
-              className={`py-1 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                activeTab === 'biolab3d'
-                  ? 'text-emerald-600 dark:text-emerald-400 underline underline-offset-8 decoration-2'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              المختبر الجزيئي 3D
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('solutions_wqi')}
-              className={`py-1 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                activeTab === 'solutions_wqi'
-                  ? 'text-emerald-600 dark:text-emerald-400 underline underline-offset-8 decoration-2'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              المحاليل ومؤشر WQI
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('vision')}
-              className={`py-1 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                activeTab === 'vision'
-                  ? 'text-emerald-600 dark:text-emerald-400 underline underline-offset-8 decoration-2'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              المختبر البصري والمطياف
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('geomap')}
-              className={`py-1 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                activeTab === 'geomap'
-                  ? 'text-emerald-600 dark:text-emerald-400 underline underline-offset-8 decoration-2'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              خريطة الرصد
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('discussion')}
-              className={`py-1 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                activeTab === 'discussion'
-                  ? 'text-emerald-600 dark:text-emerald-400 underline underline-offset-8 decoration-2'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              المساعد الذكي والتقرير
-            </button>
-          </nav>
 
-          {/* Zone 3: 1 Primary Action */}
-          <div className="flex items-center shrink-0">
             <button
               type="button"
               onClick={() => setIsHoloIdOpen(true)}
               data-testid="open-holo-id-btn"
-              className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                darkMode
+                  ? 'border-cyan-800 bg-cyan-950/50 text-cyan-300 hover:bg-cyan-900/50'
+                  : 'border-cyan-200 bg-cyan-50 text-cyan-800 hover:bg-cyan-100'
+              }`}
             >
-              بطاقة هوية المشروع (3D ID)
+              <QrCode className="w-3.5 h-3.5" />
+              <span>بطاقة الهوية ورمز QR</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleQuickPdfExport}
+              className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                darkMode
+                  ? 'border-slate-700 bg-slate-950 text-slate-200 hover:bg-slate-800'
+                  : 'border-slate-300 bg-slate-50 text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <Download className="w-3.5 h-3.5 text-teal-500" />
+              <span>تقرير PDF</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                exportStandaloneSingleFileHTML(
+                  records,
+                  stations,
+                  simulationResult
+                )
+              }
+              className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                darkMode
+                  ? 'border-slate-700 bg-slate-950 text-slate-200 hover:bg-slate-800'
+                  : 'border-slate-300 bg-slate-50 text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <Download className="w-3.5 h-3.5 text-emerald-500" />
+              <span className="hidden sm:inline">ملف HTML مستقل</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsSettingsOpen(true)}
+              aria-label="إعدادات المنصة"
+              className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                darkMode
+                  ? 'border-slate-700 bg-slate-950 text-slate-200 hover:bg-slate-800'
+                  : 'border-slate-300 bg-slate-50 text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <Settings className="w-3.5 h-3.5 text-emerald-500" />
+              <span className="hidden sm:inline">الإعدادات</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={toggleDarkMode}
+              aria-label="تبديل المظهر الفاتح أو الداكن"
+              className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                darkMode
+                  ? 'border-slate-700 bg-slate-950 text-slate-200 hover:bg-slate-800'
+                  : 'border-slate-300 bg-slate-50 text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              {darkMode ? (
+                <>
+                  <Sun className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="hidden sm:inline">فاتح</span>
+                </>
+              ) : (
+                <>
+                  <Moon className="w-3.5 h-3.5 text-slate-600" />
+                  <span className="hidden sm:inline">داكن</span>
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsChatOpen(true)}
+              data-testid="open-agent-drawer-btn"
+              className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer shadow-xs"
+            >
+              <Bot className="w-4 h-4 shrink-0" />
+              <span>وكيل المنصة الذكي</span>
             </button>
           </div>
         </header>
 
         {/* Main Workspace Container */}
         <main className="max-w-[1380px] mx-auto px-4 sm:px-6 py-6 space-y-6">
-          {/* Researcher Identity & Futuristic Scientific Dashboard Toolbar */}
+          {/* Researcher Identity & Quantitative KPI Summary Card (Zero Duplicate Buttons) */}
           <section
             className={`rounded-xl border p-6 transition-colors ${
               darkMode
@@ -305,146 +357,31 @@ export default function App() {
                 : 'bg-white border-slate-200'
             }`}
           >
-            <div className="space-y-4">
-              <div className="flex flex-col gap-4">
-                <div className="space-y-1.5">
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-emerald-700 dark:text-emerald-400 font-semibold">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-                    <span>
-                      جامعة تكريت — كلية التربية للعلوم الصرفة — قسم علوم الحياة
-                    </span>
-                  </div>
-                  <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight">
-                    EcoBio AI | النظام الذكي للمعالجة الحيوية ورصد التلوث البيئي
-                  </h1>
-                  <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-slate-600 dark:text-slate-300">
-                    <span className="font-bold text-slate-900 dark:text-white">
-                      إعداد الباحث: مؤمن خلف عبدالله
-                    </span>
-                    <span aria-hidden="true">|</span>
-                    <span>
-                      قسم علوم الحياة / كلية التربية للعلوم الصرفة / جامعة تكريت
-                    </span>
-                    <span aria-hidden="true">|</span>
-                    <span>منطقة الدراسة: نهر دجلة — مدينة تكريت</span>
-                  </div>
-                </div>
-
-                {/* Workspace Secondary Action Controls */}
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setIsSplashOpen(true)}
-                    className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
-                      darkMode
-                        ? 'border-slate-700 bg-slate-950 text-emerald-400 hover:bg-slate-800'
-                        : 'border-slate-300 bg-slate-50 text-emerald-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>شاشة الترحيب 3D</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setIsHoloIdOpen(true)}
-                    className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
-                      darkMode
-                        ? 'border-slate-700 bg-slate-950 text-cyan-400 hover:bg-slate-800'
-                        : 'border-slate-300 bg-slate-50 text-cyan-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    <Award className="w-3.5 h-3.5" />
-                    <span>هوية المشروع ورمز QR</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleQuickPdfExport}
-                    className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
-                      darkMode
-                        ? 'border-emerald-800 bg-emerald-950/60 text-emerald-300 hover:bg-emerald-900/60'
-                        : 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
-                    }`}
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>توليد تقرير مختبري رسمي (PDF)</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setIsChatOpen(true)}
-                    className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
-                      darkMode
-                        ? 'border-slate-700 bg-slate-950 text-slate-200 hover:bg-slate-800'
-                        : 'border-slate-300 bg-slate-50 text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    <MessageSquare className="w-3.5 h-3.5 text-emerald-500" />
-                    <span>المساعد الذكي</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setIsSettingsOpen(true)}
-                    aria-label="إعدادات المنصة"
-                    className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
-                      darkMode
-                        ? 'border-slate-700 bg-slate-950 text-slate-200 hover:bg-slate-800'
-                        : 'border-slate-300 bg-slate-50 text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    <Settings className="w-3.5 h-3.5 text-emerald-500" />
-                    <span>الإعدادات</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={toggleDarkMode}
-                    aria-label="تبديل المظهر الفاتح أو الداكن"
-                    className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
-                      darkMode
-                        ? 'border-slate-700 bg-slate-950 text-slate-200 hover:bg-slate-800'
-                        : 'border-slate-300 bg-slate-50 text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    {darkMode ? (
-                      <>
-                        <Sun className="w-3.5 h-3.5 text-amber-400" />
-                        <span>فاتح</span>
-                      </>
-                    ) : (
-                      <>
-                        <Moon className="w-3.5 h-3.5 text-slate-600" />
-                        <span>داكن</span>
-                      </>
-                    )}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      exportStandaloneSingleFileHTML(
-                        records,
-                        stations,
-                        simulationResult
-                      )
-                    }
-                    className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
-                      darkMode
-                        ? 'border-slate-700 bg-slate-950 text-teal-400 hover:bg-slate-800'
-                        : 'border-slate-300 bg-slate-50 text-teal-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>ملف HTML مستقل</span>
-                  </button>
-                </div>
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-emerald-700 dark:text-emerald-400 font-semibold">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                <span>
+                  جامعة تكريت — كلية التربية للعلوم الصرفة — قسم علوم الحياة
+                </span>
+              </div>
+              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight">
+                EcoBio AI | النظام الذكي للمعالجة الحيوية ورصد التلوث البيئي
+              </h1>
+              <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-slate-600 dark:text-slate-300">
+                <span className="font-bold text-slate-900 dark:text-white">
+                  إعداد الباحث: مؤمن خلف عبدالله
+                </span>
+                <span aria-hidden="true">|</span>
+                <span>
+                  قسم علوم الحياة / كلية التربية للعلوم الصرفة / جامعة تكريت
+                </span>
+                <span aria-hidden="true">|</span>
+                <span>منطقة الدراسة: نهر دجلة — مدينة تكريت</span>
               </div>
             </div>
 
             {/* 4-Column Quantitative KPI Strip with Geometric CSS Status Dots */}
-            <div className="mt-6 pt-5 border-t border-slate-200 dark:border-slate-800 grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="mt-5 pt-5 border-t border-slate-200 dark:border-slate-800 grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
@@ -511,7 +448,7 @@ export default function App() {
             </div>
           </section>
 
-          {/* Interactive 7-Tab Bar Covering All 8 Requested Platform Modules */}
+          {/* Single Unified Navigation Tab Bar (Appears Once, Zero Duplication) */}
           <div
             role="tablist"
             aria-label="التبويبات الوظيفية للمنصة"
@@ -623,7 +560,7 @@ export default function App() {
               }`}
             >
               <FileText className="w-4 h-4 shrink-0" />
-              <span>7. المساعد الذكي والتقرير PDF</span>
+              <span>7. المفسر العلمي والتقرير PDF</span>
             </button>
           </div>
 
@@ -710,36 +647,13 @@ export default function App() {
               إعداد الباحث: مؤمن خلف عبدالله — قسم علوم الحياة / كلية التربية
               للعلوم الصرفة / جامعة تكريت
             </div>
-            <div className="flex items-center gap-4">
-              <button
-                type="button"
-                onClick={() => setIsHoloIdOpen(true)}
-                className="hover:underline flex items-center gap-1 cursor-pointer text-cyan-600 dark:text-cyan-400 font-semibold"
-              >
-                <Award className="w-3.5 h-3.5" />
-                <span>بطاقة هوية المشروع (3D ID)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsSettingsOpen(true)}
-                className="hover:underline flex items-center gap-1 cursor-pointer"
-              >
-                <Settings className="w-3.5 h-3.5" />
-                <span>إعدادات المنصة</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsChatOpen(true)}
-                className="text-emerald-600 dark:text-emerald-400 font-semibold hover:underline flex items-center gap-1 cursor-pointer"
-              >
-                <MessageSquare className="w-3.5 h-3.5" />
-                <span>فتح محادثة المساعد العلمي</span>
-              </button>
+            <div className="font-mono text-emerald-600 dark:text-emerald-400">
+              https://moamin-ai-bio.vercel.app/
             </div>
           </div>
         </footer>
 
-        {/* 3D Holographic Project ID Modal */}
+        {/* 3D Holographic Project ID Modal with Real Scannable QR Code */}
         <HolographicIdModal
           isOpen={isHoloIdOpen}
           onClose={() => setIsHoloIdOpen(false)}
@@ -757,7 +671,7 @@ export default function App() {
           onResetSettings={handleResetSettings}
         />
 
-        {/* Multi-turn Scientific Chatbot Slide-over */}
+        {/* Multi-turn Gemini Platform Agent Drawer */}
         <ScientificChatbot
           isOpen={isChatOpen}
           onClose={() => setIsChatOpen(false)}

@@ -401,27 +401,56 @@ app.post('/api/gemini/maps-grounding', async (req, res) => {
   });
 });
 
-// 5. Multi-turn Scientific Chatbot Endpoint
+// 5. Multi-turn Scientific Platform Agent Endpoint (gemini-4-argon / gemini-3.8-flash / gemini-3.1-flash-lite)
 app.post('/api/gemini/chat', async (req, res) => {
-  const { messages, modelTier = 'gemini-4-argon', contextSummary } = req.body;
+  const {
+    messages,
+    modelTier = 'gemini-3.8-flash',
+    agentRoleInstruction = '',
+    contextSummary = '',
+    experimentSummary = [],
+  } = req.body;
 
-  const systemInstruction = `أنت المساعد العلمي والأكاديمي الذكي لمنصة "EcoBio AI" الخاصة بمشروع تخرج الباحث "مؤمن خلف عبدالله - قسم علوم الحياة".
-تخصصك الدقيق: المعالجة الحيوية للمياه (Bioremediation & Phytoremediation)، التخثر الحيوي (Bio-coagulation)، الطحالب المجهرية، الفحم الحيوي، كيمياء المياه، ورصد التلوث البيئي في نهر دجلة ومحافظة صلاح الدين.
-أجب بلغة عربية علمية رصينة وواضحة، واستعن بالبيانات المختبرية الحالية للباحث عند الإجابة على أسئلة لجنة المناقشة:
-${contextSummary || ''}`;
+  const expContext =
+    Array.isArray(experimentSummary) && experimentSummary.length > 0
+      ? experimentSummary
+          .map(
+            (r: any) =>
+              `- ${r.pollutant}: قبل المعالجة Ci=${r.ci} -> بعد المعالجة Cf=${r.cf} (كفاءة الإزالة RE=${r.efficiency}%, المعالجة=${r.treatment})`
+          )
+          .join('\n')
+      : '';
+
+  const systemInstruction = `أنت الوكيل العلمي الذكي المعتمد لمنصة "EcoBio AI | النظام الذكي للمعالجة الحيوية ورصد التلوث البيئي" الخاصة بالباحث "مؤمن خلف عبدالله — قسم علوم الحياة / كلية التربية للعلوم الصرفة / جامعة تكريت".
+الرابط الرسمي للمنصة: https://moamin-ai-bio.vercel.app/
+دورك التخصصي الحالي (System Role): ${
+    agentRoleInstruction ||
+    'وكيل المعالجة الحيوية للمياه، الإحصاء الحيوي (ANOVA / t-test P <= 0.05)، سعة الامتزاز (qe)، ومؤشر جودة المياه (WQI).'
+  }
+بيانات التجارب الحية المسجلة في المنصة:
+${contextSummary}
+${expContext}
+أجب على رسائل الباحث أو الزوار بدقة علمية رصينة باللغة العربية وبدون استخدام أي إيموجي.`;
+
+  const validModel =
+    modelTier === 'gemini-4-argon' ||
+    modelTier === 'gemini-3.8-flash' ||
+    modelTier === 'gemini-3.1-flash-lite'
+      ? modelTier
+      : 'gemini-3.8-flash';
 
   const ai = getGeminiClient();
   if (ai && Array.isArray(messages) && messages.length > 0) {
     try {
       const formattedContents = messages.map((m: any) => ({
         role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: String(m.content || '') }],
+        parts: [{ text: String(m.text || m.content || '') }],
       }));
 
-      const useHighThinking = modelTier === 'gemini-4-argon';
+      const useHighThinking = validModel === 'gemini-4-argon';
       const { text, modelUsed } = await generateWithFallback(
         ai,
-        modelTier,
+        validModel,
         formattedContents,
         systemInstruction,
         useHighThinking
@@ -432,40 +461,14 @@ ${contextSummary || ''}`;
         modelUsed,
       });
     } catch (err) {
-      // Fall through to intelligent domain response
+      // Fall through to intelligent agent response if API key is not configured
     }
   }
 
-  const lastUserMsg =
-    Array.isArray(messages) && messages.length > 0
-      ? String(messages[messages.length - 1]?.content || '')
-      : '';
-
-  let reply = `أهلاً بك يا أستاذ مؤمن في المساعد الأكاديمي لمنصة **EcoBio AI**.
-بناءً على بيانات تجاربك المختبرية الحالية:
-- **معادلة كفاءة الإزالة المعتمدة:** RE(%) = ((Ci - Cf) / Ci) × 100
-- **تفسير تفوق المعالجة الحيوية:** تعمل البروتينات الكاتيونية في بذور المورينجا (Moringa oleifera) والمجاميع الوظيفية السطحية (-COOH, -OH, -NH2) في طحالب Chlorella vulgaris والفحم الحيوي على ربط الملوثات العضوية والمعادن الثقيلة بكفاءة تتجاوز 90% دون ترك متبقيات ألمنيوم ضارة في المياه المعالجة.`;
-
-  if (lastUserMsg.includes('مورينجا') || lastUserMsg.includes('تخثر') || lastUserMsg.includes('عكورة')) {
-    reply = `### آلية عمل مستخلص بذور المورينجا (Moringa oleifera) في إزالة العكورة والبكتيريا:
-1. **المركب الفعال:** تحتوي بذور المورينجا على بروتينات كاتيونية ذائبة في الماء (Dimeric Cationic Proteins) بوزن جزيئي يبلغ حوالي 13 kDa.
-2. **معادلة الشحنات (Charge Neutralization):** تمتلك الدقائق الغروية المسببة للعكورة والخلايا البكتيرية في مياه نهر دجلة شحنة سطحية سالبة؛ وعند إضافة مستخلص المورينجا بجرعة مثالية (65 ملغم/لتر)، ترتبط البروتينات الموجبة بهذه الدقائق وتخفض جهد زيتا (Zeta Potential) إلى قرب الصفر.
-3. **التجسير والترسيب (Interparticle Bridging):** تتجمع الدقائق المتعادلة على شكل ندف (Flocs) كبيرة كثيفة تترسب خلال 45 دقيقة، مما يحقق إزالة للعكورة تتجاوز 95% مع الحفاظ على pH الطبيعي للمياه.`;
-  } else if (lastUserMsg.includes('طحالب') || lastUserMsg.includes('معادن') || lastUserMsg.includes('فحم') || lastUserMsg.includes('امتزاز')) {
-    reply = `### آلية الامتزاز الحيوي (Biosorption) بالطحالب المجهرية والفحم الحيوي:
-1. **المواقع الفعالة (Active Functional Groups):** يحتوي الجدار الخلوي لطحلب Chlorella vulgaris وسطح الفحم الحيوي المنشط على كثافة عالية من مجاميع الكاربوكسيل (-COOH)، الهيدروكسيل (-OH)، والأمين (-NH2).
-2. **التبادل الأيوني والتعقيد السطحي:** عند pH معتدل (6.0 - 7.0)، تفقد مجاميع الكاربوكسيل بروتوناتها لتصبح سالبة الشحنة (-COO-)، مما يمنحها ألفة كيميائية عالية لالتقاط أيونات المعادن الثقيلة الموجبة مثل الرصاص (Pb2+) والكادميوم (Cd2+) بكفاءة تصل إلى 99.13%.`;
-  } else if (lastUserMsg.includes('لجنة') || lastUserMsg.includes('مناقشة') || lastUserMsg.includes('سؤال')) {
-    reply = `### أهم الأسئلة المتوقعة من لجنة مناقشة مشروع التخرج وإجاباتها النموذجية:
-1. **لماذا فضّلت المعالجة الحيوية على الشب الكيميائي Al2(SO4)3؟**
-   - لأن المخثرات الحيوية (المورينجا والطحالب) قابلة للتحلل الحيوي (Biodegradable)، ولا تسبب انخفاضاً في pH الماء، ولا تترك متبقيات ألمنيوم مرتبطة بالسمية العصبية، فضلاً عن انخفاض حجم الحمأة الناتجة بنسبة 4 إلى 5 أضعاف.
-2. **لماذا تنخفض كفاءة الإزالة عند زيادة الجرعة فوق الحد المثالي (Overdosing)؟**
-   - بسبب ظاهرة إعادة الاستقرار الغروي (Colloidal Restabilization)؛ فعند تشبع أسطح الدقائق الغروية بالبوليمرات الموجبة، تنعكس شحنة السطح إلى موجبة فتتنافر الدقائق مجدداً وترتفع العكورة الثانوية.`;
-  }
-
-  return res.json({
-    reply,
-    modelUsed: `${modelTier} (Scientific Defense Mode)`,
+  return res.status(200).json({
+    reply: '',
+    modelUsed: validModel,
+    useClientAgentFallback: true,
   });
 });
 

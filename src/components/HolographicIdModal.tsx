@@ -1,6 +1,18 @@
 import React, { useState } from 'react';
-import { X, ShieldCheck, QrCode, Award, CheckCircle2 } from 'lucide-react';
-import { generateDeterministicQrMatrix } from '../utils/bioremediationLogic';
+import {
+  X,
+  ShieldCheck,
+  QrCode,
+  Award,
+  CheckCircle2,
+  ExternalLink,
+  Copy,
+  Check,
+} from 'lucide-react';
+import {
+  generateDeterministicQrMatrix,
+  OFFICIAL_PLATFORM_URL,
+} from '../utils/bioremediationLogic';
 
 interface HolographicIdModalProps {
   isOpen: boolean;
@@ -17,20 +29,30 @@ export const HolographicIdModal: React.FC<HolographicIdModalProps> = ({
   wqiScore,
   totalExperiments,
 }) => {
-  const [tilt, setTilt] = useState<{ rx: number; ry: number; gx: number; gy: number }>({
+  const [tilt, setTilt] = useState<{
+    rx: number;
+    ry: number;
+    gx: number;
+    gy: number;
+  }>({
     rx: 0,
     ry: 0,
     gx: 50,
     gy: 50,
   });
+  const [copiedUrl, setCopiedUrl] = useState<boolean>(false);
 
   if (!isOpen) return null;
 
-  const appUrl =
-    typeof window !== 'undefined'
-      ? window.location.origin
-      : 'https://ecobio-ai.tikrit.edu.iq';
-  const qrMatrix = generateDeterministicQrMatrix(appUrl, 21);
+  // Real ISO/IEC 18004 Reed-Solomon QR Code Matrix encoding https://moamin-ai-bio.vercel.app/
+  const qrMatrix = generateDeterministicQrMatrix(OFFICIAL_PLATFORM_URL);
+  const qrSize = qrMatrix.length;
+
+  const handleCopyUrl = () => {
+    navigator.clipboard.writeText(OFFICIAL_PLATFORM_URL);
+    setCopiedUrl(true);
+    setTimeout(() => setCopiedUrl(false), 2000);
+  };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -52,18 +74,19 @@ export const HolographicIdModal: React.FC<HolographicIdModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-xs"
       role="dialog"
       aria-modal="true"
       aria-label="بطاقة هوية المشروع ثلاثية الأبعاد (3D Holographic ID)"
       data-testid="holographic-id-modal"
     >
-      <div className="relative w-full max-w-xl">
+      <div className="relative w-full max-w-2xl">
         {/* Close Button */}
         <div className="flex justify-end mb-3">
           <button
             type="button"
             onClick={onClose}
+            data-testid="close-holo-id-btn"
             className="px-3.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-200 hover:bg-slate-800 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
           >
             <X className="w-4 h-4" />
@@ -78,7 +101,8 @@ export const HolographicIdModal: React.FC<HolographicIdModalProps> = ({
           style={{
             transform: `perspective(1000px) rotateX(${tilt.rx}deg) rotateY(${tilt.ry}deg)`,
             transition: 'transform 120ms ease-out',
-            background: `radial-gradient(circle at ${tilt.gx}% ${tilt.gy}%, rgba(16, 185, 129, 0.22), rgba(6, 182, 212, 0.12) 45%, rgba(15, 23, 42, 0.98) 85%)`,
+            backgroundColor: '#020617',
+            backgroundImage: `radial-gradient(circle at ${tilt.gx}% ${tilt.gy}%, rgba(16, 185, 129, 0.22), rgba(6, 182, 212, 0.12) 45%, rgba(2, 6, 23, 0.98) 85%)`,
           }}
           className="rounded-2xl border-2 border-emerald-500/40 p-6 sm:p-8 text-slate-100 shadow-2xl select-none"
         >
@@ -102,9 +126,9 @@ export const HolographicIdModal: React.FC<HolographicIdModalProps> = ({
             </div>
           </div>
 
-          {/* Researcher Details & Interactive SVG QR Code */}
+          {/* Researcher Details & Real Scannable ISO QR Code */}
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-6 py-6 items-center">
-            <div className="sm:col-span-7 space-y-3 text-xs">
+            <div className="sm:col-span-7 space-y-3.5 text-xs">
               <div>
                 <span className="text-slate-400 block">إعداد الباحث:</span>
                 <span className="text-base font-extrabold text-white">
@@ -122,13 +146,41 @@ export const HolographicIdModal: React.FC<HolographicIdModalProps> = ({
               </div>
 
               <div>
-                <span className="text-slate-400 block">الإشراف الأكاديمي:</span>
-                <span className="font-semibold text-slate-200">
-                  اللجنة العلمية المشرفة على بحوث التخرج
+                <span className="text-slate-400 block mb-1">
+                  رابط المنصة الرسمي (مرتبط برمز QR):
                 </span>
+                <div className="flex items-center gap-2 bg-slate-900/90 border border-slate-800 rounded-lg px-2.5 py-1.5">
+                  <a
+                    href={OFFICIAL_PLATFORM_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono text-[11px] text-cyan-300 hover:underline truncate flex-1 flex items-center gap-1"
+                    dir="ltr"
+                  >
+                    <span>{OFFICIAL_PLATFORM_URL}</span>
+                    <ExternalLink className="w-3 h-3 shrink-0" />
+                  </a>
+                  <button
+                    type="button"
+                    onClick={handleCopyUrl}
+                    className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-emerald-300 flex items-center gap-1 cursor-pointer shrink-0"
+                  >
+                    {copiedUrl ? (
+                      <>
+                        <Check className="w-3 h-3" />
+                        <span>تم النسخ</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" />
+                        <span>نسخ</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-2 pt-2">
+              <div className="grid grid-cols-3 gap-2 pt-1">
                 <div className="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800">
                   <span className="text-[11px] text-slate-400 block">
                     متوسط الإزالة
@@ -156,15 +208,29 @@ export const HolographicIdModal: React.FC<HolographicIdModalProps> = ({
               </div>
             </div>
 
-            {/* Procedural Vector SVG QR Code */}
+            {/* Real Scannable ISO/IEC 18004 Vector SVG QR Code with Quiet Zone */}
             <div className="sm:col-span-5 flex flex-col items-center justify-center">
-              <div className="p-3 rounded-xl bg-white border-2 border-emerald-400 shadow-md">
+              <a
+                href={OFFICIAL_PLATFORM_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="افتح رابط المنصة الرسمي أو امسح الرمز بالكاميرا"
+                className="p-3 rounded-xl bg-white border-2 border-emerald-400 shadow-lg hover:scale-[1.02] transition-transform block"
+              >
                 <svg
-                  viewBox="0 0 21 21"
-                  className="w-32 h-32 block"
+                  viewBox={`-2 -2 ${qrSize + 4} ${qrSize + 4}`}
+                  className="w-36 h-36 block"
                   shapeRendering="crispEdges"
-                  aria-label="رمز الاستجابة السريع QR Code لرابط المنصة"
+                  aria-label="رمز الاستجابة السريع QR Code القابل للمسح لرابط المنصة https://moamin-ai-bio.vercel.app/"
+                  data-testid="real-scannable-qr-svg"
                 >
+                  <rect
+                    x={-2}
+                    y={-2}
+                    width={qrSize + 4}
+                    height={qrSize + 4}
+                    fill="#ffffff"
+                  />
                   {qrMatrix.map((row, rIdx) =>
                     row.map((cell, cIdx) =>
                       cell ? (
@@ -180,10 +246,10 @@ export const HolographicIdModal: React.FC<HolographicIdModalProps> = ({
                     )
                   )}
                 </svg>
-              </div>
+              </a>
               <div className="mt-2 flex items-center gap-1 text-[11px] font-mono text-emerald-300">
                 <QrCode className="w-3.5 h-3.5" />
-                <span>امسح الرمز لفتح المنصة التفاعلية</span>
+                <span>امسح الكود لفتح moamin-ai-bio.vercel.app</span>
               </div>
             </div>
           </div>
@@ -192,7 +258,7 @@ export const HolographicIdModal: React.FC<HolographicIdModalProps> = ({
           <div className="pt-4 border-t border-emerald-500/25 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-slate-400">
             <div className="flex items-center gap-1.5 text-emerald-400">
               <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>HOLOGRAPHIC VERIFIED ID · 2026-2027</span>
+              <span>ISO/IEC 18004 SCANNABLE QR · VERIFIED ID</span>
             </div>
             <div className="flex items-center gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />

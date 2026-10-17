@@ -24,6 +24,7 @@ import {
   computeAcademicReportStats,
   generateBuiltInExpertResponse,
   generateDeterministicQrMatrix,
+  OFFICIAL_PLATFORM_URL,
 } from '../utils/bioremediationLogic';
 import { UserSettings } from './SettingsModal';
 import {
@@ -854,15 +855,27 @@ export const DiscussionAndScienceTab: React.FC<
             </div>
           </div>
 
-          {/* Interactive SVG QR Code Badge */}
+          {/* Real Scannable ISO/IEC 18004 SVG QR Code Badge */}
           <div className="lg:col-span-3 flex flex-col items-center justify-center p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
-            <div className="p-2 bg-white rounded-lg border border-slate-300">
+            <a
+              href={reportMeta.platformUrl || OFFICIAL_PLATFORM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-2 bg-white rounded-lg border border-slate-300 block"
+            >
               <svg
-                viewBox="0 0 21 21"
-                className="w-20 h-20 block"
+                viewBox={`-2 -2 ${qrSize + 4} ${qrSize + 4}`}
+                className="w-24 h-24 block"
                 shapeRendering="crispEdges"
                 aria-label="باركود QR Code للتقرير الرسمي"
               >
+                <rect
+                  x={-2}
+                  y={-2}
+                  width={qrSize + 4}
+                  height={qrSize + 4}
+                  fill="#ffffff"
+                />
                 {qrMatrix.map((row, rIdx) =>
                   row.map((cell, cIdx) =>
                     cell ? (
@@ -878,10 +891,10 @@ export const DiscussionAndScienceTab: React.FC<
                   )
                 )}
               </svg>
-            </div>
+            </a>
             <div className="mt-1.5 flex items-center gap-1 text-[11px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
               <QrCode className="w-3.5 h-3.5" />
-              <span>QR Code مدمج في التقرير</span>
+              <span>moamin-ai-bio.vercel.app</span>
             </div>
           </div>
         </div>

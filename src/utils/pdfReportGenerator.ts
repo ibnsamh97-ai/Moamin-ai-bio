@@ -5,6 +5,7 @@ import {
   SimulationResult,
   computeAcademicReportStats,
   generateDeterministicQrMatrix,
+  OFFICIAL_PLATFORM_URL,
 } from './bioremediationLogic';
 import { UserSettings } from '../components/SettingsModal';
 
@@ -12,7 +13,7 @@ export interface AcademicReportMetadata {
   university: string;
   collegeAndDept: string;
   researcherName: string;
-  supervisorName: string;
+  platformUrl: string;
   reportTitle: string;
   academicYear: string;
   includeCharts: boolean;
@@ -23,7 +24,7 @@ export const DEFAULT_REPORT_METADATA: AcademicReportMetadata = {
   university: 'جامعة تكريت — وزارة التعليم العالي والبحث العلمي',
   collegeAndDept: 'كلية التربية للعلوم الصرفة — قسم علوم الحياة',
   researcherName: 'مؤمن خلف عبدالله',
-  supervisorName: 'اللجنة العلمية المشرفة — قسم علوم الحياة',
+  platformUrl: OFFICIAL_PLATFORM_URL,
   reportTitle:
     'التقرير المختبري الرسمي: النظام الذكي للمعالجة الحيوية ورصد التلوث البيئي في محافظة صلاح الدين',
   academicYear: '2026 - 2027',
@@ -38,8 +39,9 @@ function drawQrCodeOnCanvas(
   y: number,
   boxSize: number
 ) {
-  const matrix = generateDeterministicQrMatrix(urlText, 21);
-  const pad = 8;
+  const matrix = generateDeterministicQrMatrix(urlText || OFFICIAL_PLATFORM_URL);
+  const n = matrix.length;
+  const pad = 10;
   ctx.fillStyle = '#ffffff';
   ctx.strokeStyle = '#10b981';
   ctx.lineWidth = 2;
@@ -49,10 +51,10 @@ function drawQrCodeOnCanvas(
   ctx.stroke();
 
   const innerSize = boxSize - pad * 2;
-  const cell = innerSize / 21;
+  const cell = innerSize / n;
   ctx.fillStyle = '#0f172a';
-  for (let r = 0; r < 21; r++) {
-    for (let c = 0; c < 21; c++) {
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n; c++) {
       if (matrix[r][c]) {
         ctx.fillRect(
           x + pad + c * cell,
@@ -131,12 +133,8 @@ export function renderReportPage1Canvas(
   ctx.fillStyle = headerGrad;
   ctx.fillRect(0, 0, canvas.width, 170);
 
-  // Interactive QR Code on Left of Header Banner
-  const appUrl =
-    typeof window !== 'undefined'
-      ? window.location.origin
-      : 'https://ecobio-ai.tikrit.edu.iq';
-  drawQrCodeOnCanvas(ctx, appUrl, 60, 22, 126);
+  // Real Scannable ISO QR Code on Left of Header Banner encoding https://moamin-ai-bio.vercel.app/
+  drawQrCodeOnCanvas(ctx, meta.platformUrl || OFFICIAL_PLATFORM_URL, 60, 22, 126);
 
   ctx.direction = 'rtl';
   ctx.textAlign = 'right';
@@ -153,7 +151,7 @@ export function renderReportPage1Canvas(
   ctx.fillStyle = '#a7f3d0';
   ctx.font = '600 15px Cairo, sans-serif';
   ctx.fillText(
-    `إعداد الباحث: ${meta.researcherName}  |  إشراف: ${meta.supervisorName}  |  العام الدراسي: ${meta.academicYear}`,
+    `إعداد الباحث: ${meta.researcherName}  |  الرابط الرسمي: ${meta.platformUrl || OFFICIAL_PLATFORM_URL}  |  العام الدراسي: ${meta.academicYear}`,
     1180,
     148,
     960
@@ -548,7 +546,7 @@ export function renderReportPage2Canvas(
     });
   }
 
-  // Academic Signature Block + QR Verification Code at bottom of Page 2
+  // Official Researcher Verification Block + Real Scannable QR Code at bottom of Page 2
   const sigY = 1465;
   ctx.fillStyle = '#f8fafc';
   ctx.strokeStyle = '#cbd5e1';
@@ -557,22 +555,19 @@ export function renderReportPage2Canvas(
   ctx.fill();
   ctx.stroke();
 
-  const appUrl =
-    typeof window !== 'undefined'
-      ? window.location.origin
-      : 'https://ecobio-ai.tikrit.edu.iq';
-  drawQrCodeOnCanvas(ctx, appUrl, 85, sigY + 22, 140);
+  const verifiedUrl = meta.platformUrl || OFFICIAL_PLATFORM_URL;
+  drawQrCodeOnCanvas(ctx, verifiedUrl, 85, sigY + 22, 140);
 
   ctx.fillStyle = '#0f172a';
   ctx.font = '700 17px Cairo, sans-serif';
-  ctx.fillText('إقرار الباحث واعتماد اللجنة العلمية المشرفة:', 1150, sigY + 42);
+  ctx.fillText('توثيق الهوية البحثية والرابط الرسمي للمنصة (QR Verification):', 1150, sigY + 42);
 
   ctx.fillStyle = '#334155';
   ctx.font = '600 15px Cairo, sans-serif';
-  ctx.fillText(`اسم الباحث: ${meta.researcherName}`, 1150, sigY + 86);
+  ctx.fillText(`إعداد الباحث: ${meta.researcherName}`, 1150, sigY + 86);
   ctx.fillText(`الكلية والقسم: ${meta.collegeAndDept}`, 1150, sigY + 122);
 
-  ctx.fillText(`جهة الإشراف: ${meta.supervisorName}`, 660, sigY + 86);
+  ctx.fillText(`الرابط الرسمي للمنصة: ${verifiedUrl}`, 660, sigY + 86);
   ctx.fillText(
     `تاريخ إصدار التقرير: ${new Date().toISOString().slice(0, 10)}`,
     660,

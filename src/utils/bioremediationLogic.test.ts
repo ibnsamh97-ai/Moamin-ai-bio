@@ -122,7 +122,10 @@ test('computeWaterQualityIndex, Built-In Expert Engine, and QR generator produce
   assert.ok(expertText.includes('مؤمن خلف عبدالله'));
   assert.ok(expertText.includes('P ≤ 0.05'));
 
-  const qr = generateDeterministicQrMatrix('https://ecobio.ai', 21);
-  assert.equal(qr.length, 21);
-  assert.equal(qr[0].length, 21);
+  const qr = generateDeterministicQrMatrix('https://moamin-ai-bio.vercel.app/');
+  assert.equal(qr.length, 29);
+  assert.equal(qr[0].length, 29);
+  assert.equal(qr[0][0], true);
+  assert.equal(qr[3][3], true);
+  assert.equal(qr[0][28], true);
 });

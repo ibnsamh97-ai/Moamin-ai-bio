@@ -1,13 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import {
-  Activity,
-  Box,
-  Cpu,
-  ArrowLeft,
-  Sparkles,
-  ShieldCheck,
-} from 'lucide-react';
+import { ArrowLeft, Bot, ShieldCheck } from 'lucide-react';
 
 interface WelcomeSplash3DProps {
   isOpen: boolean;
@@ -38,8 +31,8 @@ export const WelcomeSplash3D: React.FC<WelcomeSplash3DProps> = ({
       navigator.webdriver || /HeadlessChrome/i.test(navigator.userAgent);
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x040b14);
-    scene.fog = new THREE.FogExp2(0x040b14, 0.045);
+    scene.background = new THREE.Color(0x030912);
+    scene.fog = new THREE.FogExp2(0x030912, 0.042);
 
     const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 100);
     camera.position.set(0, 0, 12);
@@ -54,15 +47,15 @@ export const WelcomeSplash3D: React.FC<WelcomeSplash3DProps> = ({
     );
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.1;
+    renderer.toneMappingExposure = 1.15;
 
     container.innerHTML = '';
     container.appendChild(renderer.domElement);
 
-    const hemiLight = new THREE.HemisphereLight(0x10b981, 0x0f172a, 1.2);
+    const hemiLight = new THREE.HemisphereLight(0x10b981, 0x0f172a, 1.3);
     scene.add(hemiLight);
 
-    const dirLight = new THREE.DirectionalLight(0x38bdf8, 2.0);
+    const dirLight = new THREE.DirectionalLight(0x38bdf8, 2.2);
     dirLight.position.set(5, 8, 6);
     scene.add(dirLight);
 
@@ -73,7 +66,6 @@ export const WelcomeSplash3D: React.FC<WelcomeSplash3DProps> = ({
       color: 0x10b981,
       roughness: 0.25,
       metalness: 0.35,
-      wireframe: false,
     });
     const bioInstanced = new THREE.InstancedMesh(bioGeo, bioMat, bioCount);
     bioInstanced.frustumCulled = false;
@@ -110,13 +102,9 @@ export const WelcomeSplash3D: React.FC<WelcomeSplash3DProps> = ({
 
       for (let i = 0; i < bioCount; i++) {
         const angle = i * 0.65 + elapsed * 0.18;
-        const r = 3.5 + (i % 7) * 1.1;
-        const y = ((i % 9) - 4) * 1.25 + Math.sin(elapsed * 0.7 + i) * 0.45;
-        _dummyVec.set(
-          Math.cos(angle) * r,
-          y,
-          Math.sin(angle) * r - 2.0
-        );
+        const r = 3.6 + (i % 7) * 1.1;
+        const y = ((i % 9) - 4) * 1.2 + Math.sin(elapsed * 0.7 + i) * 0.45;
+        _dummyVec.set(Math.cos(angle) * r, y, Math.sin(angle) * r - 2.0);
         _dummyQuat.setFromAxisAngle(_dummyVec, elapsed * 0.4 + i);
         const s = 0.7 + (i % 4) * 0.22;
         _dummyScale.set(s, s, s);
@@ -127,13 +115,9 @@ export const WelcomeSplash3D: React.FC<WelcomeSplash3DProps> = ({
 
       for (let i = 0; i < waterCount; i++) {
         const angle = -i * 0.48 - elapsed * 0.22;
-        const r = 2.2 + (i % 8) * 1.15;
+        const r = 2.4 + (i % 8) * 1.15;
         const y = ((i % 11) - 5) * 1.0 + Math.cos(elapsed * 0.9 + i) * 0.35;
-        _dummyVec.set(
-          Math.cos(angle) * r,
-          y,
-          Math.sin(angle) * r - 1.5
-        );
+        _dummyVec.set(Math.cos(angle) * r, y, Math.sin(angle) * r - 1.5);
         _dummyQuat.identity();
         _dummyScale.set(1, 1, 1);
         _dummyMat.compose(_dummyVec, _dummyQuat, _dummyScale);
@@ -174,7 +158,7 @@ export const WelcomeSplash3D: React.FC<WelcomeSplash3DProps> = ({
       className="fixed inset-0 z-50 overflow-y-auto bg-slate-950 text-slate-100 flex items-center justify-center p-4 sm:p-6"
       role="dialog"
       aria-modal="true"
-      aria-label="شاشة الترحيب السينمائية لمنصة EcoBio AI"
+      aria-label="شاشة الترحيب والهوية البصرية لمنصة EcoBio AI"
       data-testid="welcome-splash-3d"
     >
       {/* Full-Screen 3D WebGL Floating Bio-Particles & Water Molecules Canvas */}
@@ -184,166 +168,115 @@ export const WelcomeSplash3D: React.FC<WelcomeSplash3DProps> = ({
         data-testid="welcome-splash-canvas"
       />
 
-      {/* Foreground Content Container (Solid RGBA surface to avoid WebGL backdrop-filter stall) */}
+      {/* Focused Iconic Brand Identity & Title Welcome Card */}
       <div
         style={{ backgroundColor: 'rgba(6, 15, 28, 0.90)' }}
-        className="relative z-10 w-full max-w-5xl rounded-2xl border border-emerald-500/30 p-6 sm:p-10 shadow-2xl my-auto"
+        className="relative z-10 w-full max-w-3xl rounded-3xl border border-emerald-500/35 px-6 py-10 sm:px-12 sm:py-14 shadow-2xl text-center space-y-7 my-auto"
       >
-        {/* Top Geometric SVG Emblem + Institution Header */}
-        <div className="flex flex-col items-center text-center space-y-4">
-          {/* Custom Geometric SVG Logo: Water Droplet + Cellular Structure + AI Neural Lattice */}
-          <div className="w-20 h-20 rounded-2xl bg-emerald-950/90 border border-emerald-400/40 flex items-center justify-center shadow-lg">
+        {/* Prominent Platform Brand Identity Emblem (شعار الهوية البصرية للمنصة) */}
+        <div className="flex flex-col items-center space-y-3">
+          <div className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-3xl bg-slate-900/95 border-2 border-emerald-400/50 flex items-center justify-center shadow-2xl">
             <svg
-              viewBox="0 0 80 80"
-              className="w-14 h-14 text-emerald-400"
+              viewBox="0 0 100 100"
+              className="w-22 h-22 sm:w-24 sm:h-24"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
+              aria-label="شعار الهوية البصرية لمنصة EcoBio AI"
             >
-              {/* Water Droplet Outer Contour */}
-              <path
-                d="M40 8C40 8 16 34 16 51C16 64.2548 26.7452 75 40 75C53.2548 75 64 64.2548 64 51C64 34 40 8 40 8Z"
-                stroke="#10b981"
-                strokeWidth="2.5"
-                fill="rgba(16, 185, 129, 0.12)"
-              />
-              {/* Hexagonal Cellular Membrane */}
-              <polygon
-                points="40,26 53,33.5 53,48.5 40,56 27,48.5 27,33.5"
+              {/* Outer Scientific Orbital Ring */}
+              <circle
+                cx="50"
+                cy="50"
+                r="44"
                 stroke="#06b6d4"
-                strokeWidth="2"
-                fill="rgba(6, 182, 212, 0.15)"
+                strokeWidth="1.2"
+                strokeDasharray="4 4"
+                opacity="0.65"
               />
-              {/* AI Neural Nodes & Synaptic Links */}
+              {/* Water Droplet Contour */}
+              <path
+                d="M50 10C50 10 22 40 22 61C22 76.464 34.536 89 50 89C65.464 89 78 76.464 78 61C78 40 50 10 50 10Z"
+                stroke="#10b981"
+                strokeWidth="3"
+                fill="rgba(16, 185, 129, 0.14)"
+              />
+              {/* Hexagonal Bio-Cellular Membrane */}
+              <polygon
+                points="50,33 65,41.5 65,58.5 50,67 35,58.5 35,41.5"
+                stroke="#38bdf8"
+                strokeWidth="2.2"
+                fill="rgba(6, 182, 212, 0.16)"
+              />
+              {/* AI Neural Lattice & Synaptic Core */}
               <line
-                x1="40"
-                y1="26"
-                x2="40"
-                y2="56"
+                x1="50"
+                y1="33"
+                x2="50"
+                y2="67"
                 stroke="#34d399"
-                strokeWidth="1.5"
+                strokeWidth="1.8"
               />
               <line
-                x1="27"
-                y1="33.5"
-                x2="53"
-                y2="48.5"
+                x1="35"
+                y1="41.5"
+                x2="65"
+                y2="58.5"
                 stroke="#34d399"
-                strokeWidth="1.5"
+                strokeWidth="1.8"
               />
               <line
-                x1="53"
-                y1="33.5"
-                x2="27"
-                y2="48.5"
+                x1="65"
+                y1="41.5"
+                x2="35"
+                y2="58.5"
                 stroke="#34d399"
-                strokeWidth="1.5"
+                strokeWidth="1.8"
               />
-              <circle cx="40" cy="41" r="5" fill="#10b981" />
-              <circle cx="40" cy="26" r="2.5" fill="#38bdf8" />
-              <circle cx="53" cy="33.5" r="2.5" fill="#38bdf8" />
-              <circle cx="53" cy="48.5" r="2.5" fill="#38bdf8" />
-              <circle cx="40" cy="56" r="2.5" fill="#38bdf8" />
-              <circle cx="27" cy="48.5" r="2.5" fill="#38bdf8" />
-              <circle cx="27" cy="33.5" r="2.5" fill="#38bdf8" />
+              <circle cx="50" cy="50" r="6" fill="#10b981" />
+              <circle cx="50" cy="33" r="3" fill="#38bdf8" />
+              <circle cx="65" cy="41.5" r="3" fill="#38bdf8" />
+              <circle cx="65" cy="58.5" r="3" fill="#38bdf8" />
+              <circle cx="50" cy="67" r="3" fill="#38bdf8" />
+              <circle cx="35" cy="58.5" r="3" fill="#38bdf8" />
+              <circle cx="35" cy="41.5" r="3" fill="#38bdf8" />
             </svg>
           </div>
 
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-md bg-emerald-950/90 border border-emerald-500/30 text-emerald-300 text-xs font-semibold">
+          <span className="text-xs font-mono tracking-widest uppercase text-emerald-400 font-bold">
+            ECOBIO AI · ENVIRONMENTAL BIOREMEDIATION SYSTEM
+          </span>
+        </div>
+
+        {/* Platform Title & Academic Identity */}
+        <div className="space-y-4">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-950/90 border border-emerald-500/35 text-emerald-300 text-xs sm:text-sm font-semibold">
             <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
             <span>
               جامعة تكريت — كلية التربية للعلوم الصرفة — قسم علوم الحياة
             </span>
           </div>
 
-          <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
-            منصة EcoBio AI | النظام الذكي للمعالجة الحيوية ورصد التلوث البيئي
+          <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white leading-snug">
+            EcoBio AI | النظام الذكي للمعالجة الحيوية ورصد التلوث البيئي
           </h1>
 
-          <div className="flex flex-wrap items-center justify-center gap-3 text-xs sm:text-sm text-slate-300">
-            <span className="font-bold text-emerald-400">
+          <div className="pt-1">
+            <p className="text-sm sm:text-base font-bold text-emerald-400">
               إعداد الباحث: مؤمن خلف عبدالله
-            </span>
-            <span aria-hidden="true">|</span>
-            <span>قسم علوم الحياة / كلية التربية للعلوم الصرفة / جامعة تكريت</span>
-            <span aria-hidden="true">|</span>
-            <span className="text-cyan-300 font-semibold">
-              إشراف: اللجنة العلمية المشرفة على مشاريع التخرج
-            </span>
-          </div>
-        </div>
-
-        {/* 3 Onboarding Guide Cards with Clean Geometric SVG Icons */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 my-8">
-          {/* Card 1 */}
-          <div className="rounded-xl border border-slate-800 bg-slate-900/90 p-5 space-y-2.5 hover:border-emerald-500/50 transition-colors">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-mono font-bold text-emerald-400">
-                STEP 01
-              </span>
-              <div className="w-9 h-9 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                <Activity className="w-5 h-5" />
-              </div>
-            </div>
-            <h2 className="text-sm font-bold text-white">
-              1. إدخال القراءات والإحصاء الحيوي
-            </h2>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              إدخال تراكيز الملوثات بثلاث مكررات (R1, R2, R3) لحساب المتوسط
-              الحسابي والانحراف المعياري (±SD) ومعنوية الفروق (ANOVA / t-test عند
-              مستوى P ≤ 0.05) مع حاسبة المحاليل القياسية ومؤشر WQI وسعة الامتزاز
-              (qe).
             </p>
-          </div>
-
-          {/* Card 2 */}
-          <div className="rounded-xl border border-slate-800 bg-slate-900/90 p-5 space-y-2.5 hover:border-cyan-500/50 transition-colors">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-mono font-bold text-cyan-400">
-                STEP 02
-              </span>
-              <div className="w-9 h-9 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
-                <Box className="w-5 h-5" />
-              </div>
-            </div>
-            <h2 className="text-sm font-bold text-white">
-              2. استكشاف المختبر ثلاثي الأبعاد
-            </h2>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              محاكاة جزيئية تفاعلية بزاوية 360 درجة (Three.js OrbitControls)
-              تجسد امتزاز المعادن الثقيلة، وتدمير الخلايا البكتيرية، وتنقية
-              العكورة على السطح المسامي للطحالب والفحم الحيوي.
-            </p>
-          </div>
-
-          {/* Card 3 */}
-          <div className="rounded-xl border border-slate-800 bg-slate-900/90 p-5 space-y-2.5 hover:border-teal-500/50 transition-colors">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-mono font-bold text-teal-400">
-                STEP 03
-              </span>
-              <div className="w-9 h-9 rounded-lg bg-teal-500/15 border border-teal-500/30 flex items-center justify-center text-teal-400">
-                <Cpu className="w-5 h-5" />
-              </div>
-            </div>
-            <h2 className="text-sm font-bold text-white">
-              3. تخصيص وتدريب المساعد الذكي
-            </h2>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              توجيه المساعد الذكي على تخصص البحث وتغذيته بالبيانات مع محرك خبير
-              بيئي داخلي (Built-In Scientific Expert Engine) يضمن التفسير العلمي
-              وإصدار التقرير الأكاديمي المزود برمز QR دون انقطاع.
+            <p className="text-xs sm:text-sm text-slate-300 mt-1">
+              قسم علوم الحياة / كلية التربية للعلوم الصرفة / جامعة تكريت
             </p>
           </div>
         </div>
 
-        {/* Action Buttons without Emojis */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
+        {/* Direct Entry Action Buttons */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-3">
           <button
             type="button"
             onClick={onEnterPlatform}
             data-testid="enter-platform-btn"
-            className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold flex items-center justify-center gap-2.5 shadow-lg transition-colors cursor-pointer"
+            className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold flex items-center justify-center gap-2.5 shadow-lg transition-colors cursor-pointer"
           >
             <ShieldCheck className="w-4 h-4 shrink-0" />
             <span>الدخول إلى المنصة الذكية</span>
@@ -354,10 +287,10 @@ export const WelcomeSplash3D: React.FC<WelcomeSplash3DProps> = ({
             type="button"
             onClick={onOpenSmartAssistant}
             data-testid="splash-open-assistant-btn"
-            className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-cyan-700 hover:bg-cyan-600 border border-cyan-400/30 text-white text-sm font-bold flex items-center justify-center gap-2.5 shadow-lg transition-colors cursor-pointer"
+            className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-cyan-500/40 text-cyan-300 text-sm font-bold flex items-center justify-center gap-2.5 shadow-lg transition-colors cursor-pointer"
           >
-            <Sparkles className="w-4 h-4 shrink-0" />
-            <span>تشغيل وتخصيص المساعد الذكي</span>
+            <Bot className="w-4 h-4 shrink-0" />
+            <span>محادثة وكيل المنصة الذكي</span>
           </button>
         </div>
       </div>
