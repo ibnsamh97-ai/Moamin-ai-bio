@@ -17,16 +17,16 @@ import {
   Trash2,
   Download,
   RotateCcw,
-  Beaker,
   CheckCircle2,
   AlertTriangle,
+  Activity,
 } from 'lucide-react';
 import {
   ExperimentRecord,
   POLLUTANT_SPECS,
   TREATMENT_TYPES,
-  calculateRemovalEfficiency,
   calculateAdsorptionCapacityQe,
+  computeTriplicateBiostats,
   evaluateEfficiencyGrade,
 } from '../utils/bioremediationLogic';
 import { UserSettings } from './SettingsModal';
@@ -60,34 +60,36 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
   darkMode,
   userSettings,
 }) => {
-  const [selectedPollutantId, setSelectedPollutantId] = useState<string>(
-    POLLUTANT_SPECS[0].id
-  );
-  const [ciInput, setCiInput] = useState<string>('145');
-  const [cfInput, setCfInput] = useState<string>('6.8');
-  const [treatmentType, setTreatmentType] = useState<string>(
+  const [selectedPollutantId, setSelectedPollutantId] =
+    useState<string>('turbidity');
+  const [ciR1, setCiR1] = useState<string>('146.5');
+  const [ciR2, setCiR2] = useState<string>('148.0');
+  const [ciR3, setCiR3] = useState<string>('149.5');
+
+  const [cfR1, setCfR1] = useState<string>('6.2');
+  const [cfR2, setCfR2] = useState<string>('6.4');
+  const [cfR3, setCfR3] = useState<string>('6.6');
+
+  const [selectedTreatment, setSelectedTreatment] = useState<string>(
     userSettings.defaultTreatmentType
   );
-  const [doseInput, setDoseInput] = useState<string>(
+  const [doseStr, setDoseStr] = useState<string>(
     String(userSettings.defaultDose)
   );
-  const [timeInput, setTimeInput] = useState<string>(
+  const [timeStr, setTimeStr] = useState<string>(
     String(userSettings.defaultContactTime)
   );
-  const [phInput, setPhInput] = useState<string>(
-    String(userSettings.defaultPh)
-  );
-  const [validationError, setValidationError] = useState<string | null>(null);
+  const [phStr, setPhStr] = useState<string>(String(userSettings.defaultPh));
+  const [formError, setFormError] = useState<string | null>(null);
 
   const chartCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const chartInstanceRef = useRef<Chart | null>(null);
 
-  // Sync default fields when user updates settings
   useEffect(() => {
-    setTreatmentType(userSettings.defaultTreatmentType);
-    setDoseInput(String(userSettings.defaultDose));
-    setTimeInput(String(userSettings.defaultContactTime));
-    setPhInput(String(userSettings.defaultPh));
+    setSelectedTreatment(userSettings.defaultTreatmentType);
+    setDoseStr(String(userSettings.defaultDose));
+    setTimeStr(String(userSettings.defaultContactTime));
+    setPhStr(String(userSettings.defaultPh));
   }, [
     userSettings.defaultTreatmentType,
     userSettings.defaultDose,
@@ -99,130 +101,148 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
     POLLUTANT_SPECS.find((p) => p.id === selectedPollutantId) ??
     POLLUTANT_SPECS[0];
 
-  // Resolve unit label based on userSettings
-  const activePollutantUnit =
-    currentSpec.id === 'turbidity'
-      ? userSettings.turbidityUnit
-      : currentSpec.unit === 'mg/L'
-      ? userSettings.concentrationUnit
-      : currentSpec.unit;
-
-  const formatRecordUnit = (rec: ExperimentRecord) => {
-    if (rec.pollutantId === 'turbidity') return userSettings.turbidityUnit;
-    if (rec.unit === 'mg/L') return userSettings.concentrationUnit;
-    return rec.unit;
+  const resolveDisplayUnit = (specId: string, baseUnit: string): string => {
+    if (specId === 'turbidity') return userSettings.turbidityUnit;
+    if (baseUnit === 'mg/L') return userSettings.concentrationUnit;
+    return baseUnit;
   };
 
-  const handlePollutantChange = (newId: string) => {
-    setSelectedPollutantId(newId);
-    const spec = POLLUTANT_SPECS.find((p) => p.id === newId);
+  const activeUnit = resolveDisplayUnit(currentSpec.id, currentSpec.unit);
+
+  const handlePollutantChange = (pollutantId: string) => {
+    setSelectedPollutantId(pollutantId);
+    const spec = POLLUTANT_SPECS.find((p) => p.id === pollutantId);
     if (spec) {
-      setCiInput(String(spec.defaultCi));
-      setCfInput(String(spec.defaultCf));
-      setValidationError(null);
+      setCiR1(String(spec.defaultCiReplicates[0]));
+      setCiR2(String(spec.defaultCiReplicates[1]));
+      setCiR3(String(spec.defaultCiReplicates[2]));
+      setCfR1(String(spec.defaultCfReplicates[0]));
+      setCfR2(String(spec.defaultCfReplicates[1]));
+      setCfR3(String(spec.defaultCfReplicates[2]));
+      setFormError(null);
     }
   };
 
-  const numericCi = parseFloat(ciInput);
-  const numericCf = parseFloat(cfInput);
-  const numericDose = parseFloat(doseInput);
-  const liveEfficiency = calculateRemovalEfficiency(numericCi, numericCf);
-  const liveQe = calculateAdsorptionCapacityQe(
-    numericCi,
-    numericCf,
-    numericDose
-  );
-  const liveGrade = evaluateEfficiencyGrade(liveEfficiency);
+  const ciReps: [number, number, number] = [
+    Number(ciR1) || 0,
+    Number(ciR2) || 0,
+    Number(ciR3) || 0,
+  ];
+  const cfReps: [number, number, number] = [
+    Number(cfR1) || 0,
+    Number(cfR2) || 0,
+    Number(cfR3) || 0,
+  ];
 
-  const handleAddSubmit = (e: React.FormEvent) => {
+  const liveBiostats = computeTriplicateBiostats(ciReps, cfReps);
+  const doseNum = Number(doseStr);
+  const liveQe = calculateAdsorptionCapacityQe(
+    liveBiostats.ciMean,
+    liveBiostats.cfMean,
+    doseNum
+  );
+  const liveGrade = evaluateEfficiencyGrade(liveBiostats.efficiency);
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (
-      Number.isNaN(numericCi) ||
-      numericCi <= 0 ||
-      Number.isNaN(numericCf) ||
-      numericCf < 0
+      ciReps.some((v) => !Number.isFinite(v) || v <= 0) ||
+      cfReps.some((v) => !Number.isFinite(v) || v < 0)
     ) {
-      setValidationError(
-        'يرجى إدخال قراءات رقمية صحيحة أكبر من الصفر للتركيز الأولي (Ci) والتركيز النهائي (Cf).'
+      setFormError(
+        'يرجى إدخال قراءات رقمية صحيحة للمكررات الثلاثة (R1, R2, R3) بحيث تكون القراءات قبل المعالجة أكبر من صفر.'
       );
       return;
     }
-    if (numericCf > numericCi) {
-      setValidationError(
-        'القراءة بعد المعالجة (Cf) يجب أن تكون أقل من أو مساوية للقراءة قبل المعالجة (Ci).'
+    if (liveBiostats.cfMean > liveBiostats.ciMean) {
+      setFormError(
+        'المتوسط الحسابي بعد المعالجة (Cf Mean) يجب أن يكون أقل من أو مساوياً للمتوسط قبل المعالجة (Ci Mean).'
       );
       return;
     }
-    setValidationError(null);
+    const timeNum = Number(timeStr);
+    const phNum = Number(phStr);
+    if (
+      !Number.isFinite(doseNum) ||
+      doseNum <= 0 ||
+      !Number.isFinite(timeNum) ||
+      timeNum <= 0
+    ) {
+      setFormError('يرجى إدخال جرعة معالجة ووقت تماس موجبين.');
+      return;
+    }
 
+    setFormError(null);
     const now = new Date();
-    const formattedTime = `${now.getFullYear()}-${String(
+    const timestamp = `${now.getFullYear()}-${String(
       now.getMonth() + 1
     ).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(
       now.getHours()
     ).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-    const newRecord: ExperimentRecord = {
+    const newRec: ExperimentRecord = {
       id: `exp-${Date.now()}`,
       pollutantId: currentSpec.id,
       pollutantName: currentSpec.name,
-      unit: activePollutantUnit,
-      ci: numericCi,
-      cf: numericCf,
-      efficiency: liveEfficiency,
+      unit: activeUnit,
+      ciReplicates: ciReps,
+      cfReplicates: cfReps,
+      ci: liveBiostats.ciMean,
+      ciSd: liveBiostats.ciSd,
+      cf: liveBiostats.cfMean,
+      cfSd: liveBiostats.cfSd,
+      efficiency: liveBiostats.efficiency,
+      tStat: liveBiostats.tStat,
+      pValue: liveBiostats.pValue,
+      isSignificant: liveBiostats.isSignificant,
       adsorptionCapacityQe: liveQe,
-      treatmentType,
-      doseMgL: Number.isNaN(numericDose)
-        ? userSettings.defaultDose
-        : numericDose,
-      contactTimeMin: Number.isNaN(parseFloat(timeInput))
-        ? userSettings.defaultContactTime
-        : parseFloat(timeInput),
-      ph: Number.isNaN(parseFloat(phInput))
-        ? userSettings.defaultPh
-        : parseFloat(phInput),
+      treatmentType: selectedTreatment,
+      doseMgL: doseNum,
+      contactTimeMin: timeNum,
+      ph: Number.isFinite(phNum) ? phNum : 7.0,
       standardLimit: currentSpec.standardLimit,
-      isCompliant: numericCf <= currentSpec.standardLimit,
-      timestamp: formattedTime,
+      isCompliant: liveBiostats.cfMean <= currentSpec.standardLimit,
+      timestamp,
     };
 
-    onAddRecord(newRecord);
+    onAddRecord(newRec);
   };
 
   const handleExportCSV = () => {
     const headers = [
       'المؤشر البيئي',
       'الوحدة',
-      'التركيز قبل المعالجة Ci',
-      'التركيز بعد المعالجة Cf',
-      'كفاءة الإزالة %',
-      'سعة الامتزاز qe (mg/g)',
-      'نوع المعالجة الحيوية',
-      `الجرعة (${userSettings.concentrationUnit})`,
+      'المتوسط قبل المعالجة (Ci ± SD)',
+      'المتوسط بعد المعالجة (Cf ± SD)',
+      'كفاءة الإزالة (%)',
+      'اختبار المعنوية (t / P-value)',
+      'سعة الامتزاز (qe mg/g)',
+      'نوع المعالجة',
+      'الجرعة',
       'وقت التماس (min)',
       'pH',
-      'المطابقة القياسية',
     ];
     const rows = records.map((r) => [
       `"${r.pollutantName}"`,
-      formatRecordUnit(r),
-      r.ci,
-      r.cf,
+      r.unit,
+      `"${r.ci} ± ${r.ciSd}"`,
+      `"${r.cf} ± ${r.cfSd}"`,
       r.efficiency,
+      `"t=${r.tStat}, P=${r.pValue}"`,
       r.adsorptionCapacityQe,
       `"${r.treatmentType}"`,
       r.doseMgL,
       r.contactTimeMin,
       r.ph,
-      r.isCompliant ? 'مطابق' : 'أعلى من الحد',
     ]);
     const csvContent =
-      '\uFEFF' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+      '\uFEFF' +
+      [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'EcoBio_AI_Results_Moamen_Khalaf.csv');
+    link.download = 'EcoBio_AI_Biostatistics_Results.csv';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -235,97 +255,89 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
       chartInstanceRef.current.destroy();
     }
 
-    const ctx = chartCanvasRef.current.getContext('2d');
-    if (!ctx) return;
+    const labels = records.map(
+      (r) =>
+        POLLUTANT_SPECS.find((p) => p.id === r.pollutantId)?.shortName ??
+        r.pollutantName
+    );
+    const ciData = records.map((r) => r.ci);
+    const cfData = records.map((r) => r.cf);
+    const effData = records.map((r) => r.efficiency);
 
     const textColor = darkMode ? '#cbd5e1' : '#334155';
     const gridColor = darkMode
       ? 'rgba(148, 163, 184, 0.14)'
-      : 'rgba(148, 163, 184, 0.25)';
+      : 'rgba(15, 23, 42, 0.08)';
 
-    const labels = records.map((r) => r.pollutantName.split(' (')[0]);
-    const ciValues = records.map((r) => r.ci);
-    const cfValues = records.map((r) => r.cf);
-    const effValues = records.map((r) => r.efficiency);
-
-    chartInstanceRef.current = new Chart(ctx, {
+    chartInstanceRef.current = new Chart(chartCanvasRef.current, {
       type: 'bar',
       data: {
         labels,
         datasets: [
           {
+            type: 'line',
+            label: 'منحنى كفاءة الإزالة المئوية (%)',
+            data: effData,
+            borderColor: '#10b981',
+            backgroundColor: '#10b981',
+            borderWidth: 3,
+            pointRadius: 5,
+            pointBackgroundColor: '#059669',
+            yAxisID: 'yEfficiency',
+            tension: 0.3,
+          },
+          {
             type: 'bar',
-            label: `التركيز قبل المعالجة (Ci) [${userSettings.concentrationUnit}]`,
-            data: ciValues,
-            backgroundColor: 'rgba(245, 158, 11, 0.75)',
+            label: 'متوسط التركيز قبل المعالجة (Ci Mean)',
+            data: ciData,
+            backgroundColor: 'rgba(245, 158, 11, 0.78)',
             borderColor: '#d97706',
             borderWidth: 1,
             borderRadius: 6,
-            yAxisID: 'y',
+            yAxisID: 'yConc',
           },
           {
             type: 'bar',
-            label: `التركيز بعد المعالجة (Cf) [${userSettings.concentrationUnit}]`,
-            data: cfValues,
-            backgroundColor: 'rgba(13, 148, 136, 0.82)',
-            borderColor: '#0d9488',
+            label: 'متوسط التركيز بعد المعالجة (Cf Mean)',
+            data: cfData,
+            backgroundColor: 'rgba(6, 182, 212, 0.85)',
+            borderColor: '#0891b2',
             borderWidth: 1,
             borderRadius: 6,
-            yAxisID: 'y',
-          },
-          {
-            type: 'line',
-            label: 'منحنى كفاءة الإزالة (%)',
-            data: effValues,
-            borderColor: '#10b981',
-            backgroundColor: '#10b981',
-            borderWidth: 2.5,
-            pointRadius: 4,
-            pointBackgroundColor: '#059669',
-            tension: 0.3,
-            yAxisID: 'y1',
+            yAxisID: 'yConc',
           },
         ],
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        animation: {
-          duration: 200,
-        },
-        interaction: {
-          mode: 'index',
-          intersect: false,
-        },
+        interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: {
             labels: {
               color: textColor,
-              font: { family: 'Cairo', size: 12, weight: 600 },
+              font: { family: 'Cairo', size: 12, weight: 'bold' },
             },
           },
         },
         scales: {
           x: {
-            ticks: {
-              color: textColor,
-              font: { family: 'Cairo', size: 11 },
-            },
+            ticks: { color: textColor, font: { family: 'Cairo', size: 11 } },
             grid: { color: gridColor },
           },
-          y: {
+          yConc: {
             type: 'linear',
             position: 'right',
             title: {
               display: true,
-              text: `التركيز (${userSettings.concentrationUnit} / ${userSettings.turbidityUnit})`,
+              text: 'متوسط التركيز (Ci / Cf)',
               color: textColor,
-              font: { family: 'Cairo', size: 12, weight: 600 },
+              font: { family: 'Cairo', size: 12, weight: 'bold' },
             },
             ticks: { color: textColor },
             grid: { color: gridColor },
           },
-          y1: {
+          yEfficiency: {
             type: 'linear',
             position: 'left',
             min: 0,
@@ -334,7 +346,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
               display: true,
               text: 'كفاءة الإزالة (%)',
               color: '#10b981',
-              font: { family: 'Cairo', size: 12, weight: 600 },
+              font: { family: 'Cairo', size: 12, weight: 'bold' },
             },
             ticks: {
               color: '#10b981',
@@ -351,464 +363,547 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
         chartInstanceRef.current.destroy();
       }
     };
-  }, [records, darkMode, userSettings.concentrationUnit, userSettings.turbidityUnit]);
+  }, [records, darkMode]);
+
+  const inputClass = `w-full rounded-lg border px-2.5 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+    darkMode
+      ? 'bg-slate-950 border-slate-700 text-slate-100'
+      : 'bg-slate-50 border-slate-300 text-slate-900'
+  }`;
 
   return (
     <div className="space-y-8">
-      {/* Top Split: Calculator Form & Live Formula Readout + Chart */}
+      {/* Top 12-Col Bento Grid: Form (5 cols) + Dual-Axis Chart (7 cols) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-        {/* Form Panel (5 cols) */}
+        {/* Input Form Card with Triplicate Replicates (R1, R2, R3) & ANOVA/t-test */}
         <div
-          className={`lg:col-span-5 rounded-xl border p-6 transition-colors ${
+          className={`lg:col-span-5 rounded-xl border p-6 flex flex-col justify-between ${
             darkMode
               ? 'bg-slate-900 border-slate-800'
               : 'bg-white border-slate-200'
           }`}
         >
-          <div className="flex items-center justify-between mb-5 pb-3 border-b border-slate-200 dark:border-slate-800">
-            <div>
-              <h2 className="text-lg font-bold flex items-center gap-2">
-                <Calculator className="w-5 h-5 text-emerald-600 shrink-0" />
-                <span>حاسبة كفاءة الإزالة والمؤشرات البيئية</span>
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                إدخال القراءات المختبرية قبل وبعد المعالجة الحيوية
-              </p>
-            </div>
-            <span className="text-xs font-mono text-emerald-600 dark:text-emerald-400">
-              {userSettings.preferredStandard} · {userSettings.concentrationUnit}
-            </span>
-          </div>
-
-          <form onSubmit={handleAddSubmit} className="space-y-4">
-            <div>
-              <label
-                htmlFor="pollutant-select"
-                className="block text-xs font-semibold mb-1.5 text-slate-700 dark:text-slate-300"
-              >
-                نوع الملوث أو المؤشر البيئي
-              </label>
-              <select
-                id="pollutant-select"
-                value={selectedPollutantId}
-                onChange={(e) => handlePollutantChange(e.target.value)}
-                className={`w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
-                  darkMode
-                    ? 'bg-slate-950 border-slate-700 text-slate-100'
-                    : 'bg-slate-50 border-slate-300 text-slate-900'
-                }`}
-              >
-                {POLLUTANT_SPECS.map((spec) => (
-                  <option key={spec.id} value={spec.id}>
-                    {spec.name} — [
-                    {spec.id === 'turbidity'
-                      ? userSettings.turbidityUnit
-                      : spec.unit === 'mg/L'
-                      ? userSettings.concentrationUnit
-                      : spec.unit}
-                    ]
-                  </option>
-                ))}
-              </select>
-              <div className="mt-1.5 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                <span>وحدة القياس: {activePollutantUnit}</span>
-                <span aria-hidden="true">·</span>
-                <span>
-                  الحد القياسي المسموح: {currentSpec.standardLimit}{' '}
-                  {activePollutantUnit} ({userSettings.preferredStandard})
-                </span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-200 dark:border-slate-800">
               <div>
-                <label
-                  htmlFor="ci-input"
-                  className="block text-xs font-semibold mb-1.5 text-slate-700 dark:text-slate-300"
-                >
-                  القراءة قبل المعالجة (Ci) [{activePollutantUnit}]
-                </label>
-                <input
-                  id="ci-input"
-                  type="number"
-                  step="any"
-                  value={ciInput}
-                  onChange={(e) => setCiInput(e.target.value)}
-                  className={`w-full rounded-lg border px-3.5 py-2 text-sm font-mono tabular-nums focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
-                    darkMode
-                      ? 'bg-slate-950 border-slate-700 text-slate-100'
-                      : 'bg-slate-50 border-slate-300 text-slate-900'
-                  }`}
-                  required
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="cf-input"
-                  className="block text-xs font-semibold mb-1.5 text-slate-700 dark:text-slate-300"
-                >
-                  القراءة بعد المعالجة (Cf) [{activePollutantUnit}]
-                </label>
-                <input
-                  id="cf-input"
-                  type="number"
-                  step="any"
-                  value={cfInput}
-                  onChange={(e) => setCfInput(e.target.value)}
-                  className={`w-full rounded-lg border px-3.5 py-2 text-sm font-mono tabular-nums focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
-                    darkMode
-                      ? 'bg-slate-950 border-slate-700 text-slate-100'
-                      : 'bg-slate-50 border-slate-300 text-slate-900'
-                  }`}
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <label
-                htmlFor="treatment-select"
-                className="block text-xs font-semibold mb-1.5 text-slate-700 dark:text-slate-300"
-              >
-                نوع المعالجة الحيوية / الكيميائية المستخدمة
-              </label>
-              <select
-                id="treatment-select"
-                value={treatmentType}
-                onChange={(e) => setTreatmentType(e.target.value)}
-                className={`w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
-                  darkMode
-                    ? 'bg-slate-950 border-slate-700 text-slate-100'
-                    : 'bg-slate-50 border-slate-300 text-slate-900'
-                }`}
-              >
-                {TREATMENT_TYPES.map((t) => (
-                  <option key={t.id} value={t.name}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label
-                  htmlFor="dose-input"
-                  className="block text-xs font-semibold mb-1 text-slate-700 dark:text-slate-300"
-                >
-                  الجرعة ({userSettings.concentrationUnit})
-                </label>
-                <input
-                  id="dose-input"
-                  type="number"
-                  step="any"
-                  value={doseInput}
-                  onChange={(e) => setDoseInput(e.target.value)}
-                  className={`w-full rounded-lg border px-3 py-2 text-sm font-mono tabular-nums focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
-                    darkMode
-                      ? 'bg-slate-950 border-slate-700 text-slate-100'
-                      : 'bg-slate-50 border-slate-300 text-slate-900'
-                  }`}
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="time-input"
-                  className="block text-xs font-semibold mb-1 text-slate-700 dark:text-slate-300"
-                >
-                  وقت التماس (دقيقة)
-                </label>
-                <input
-                  id="time-input"
-                  type="number"
-                  step="any"
-                  value={timeInput}
-                  onChange={(e) => setTimeInput(e.target.value)}
-                  className={`w-full rounded-lg border px-3 py-2 text-sm font-mono tabular-nums focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
-                    darkMode
-                      ? 'bg-slate-950 border-slate-700 text-slate-100'
-                      : 'bg-slate-50 border-slate-300 text-slate-900'
-                  }`}
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="ph-input"
-                  className="block text-xs font-semibold mb-1 text-slate-700 dark:text-slate-300"
-                >
-                  الدالة الحامضية (pH)
-                </label>
-                <input
-                  id="ph-input"
-                  type="number"
-                  step="0.1"
-                  min="1"
-                  max="14"
-                  value={phInput}
-                  onChange={(e) => setPhInput(e.target.value)}
-                  className={`w-full rounded-lg border px-3 py-2 text-sm font-mono tabular-nums focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
-                    darkMode
-                      ? 'bg-slate-950 border-slate-700 text-slate-100'
-                      : 'bg-slate-50 border-slate-300 text-slate-900'
-                  }`}
-                />
-              </div>
-            </div>
-
-            {/* Live Mathematical Output Display */}
-            <div
-              className={`rounded-lg border p-4 ${
-                darkMode
-                  ? 'bg-slate-950/90 border-slate-800'
-                  : 'bg-slate-50 border-slate-200'
-              }`}
-            >
-              <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2">
-                <span>المعادلة المعتمدة: RE(%) = ((Ci - Cf) / Ci) × 100</span>
-                <span className="font-mono">qe = (Ci - Cf) × V / m</span>
-              </div>
-              <div className="grid grid-cols-2 gap-4 pt-1">
-                <div>
-                  <span className="text-xs text-slate-500 dark:text-slate-400 block">
-                    نسبة كفاءة الإزالة المئوية
+                <h2 className="text-base font-bold flex items-center gap-2">
+                  <Calculator className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <span>
+                    حاسبة كفاءة المعالجة ومختبر الإحصاء الحيوي (R1, R2, R3)
                   </span>
-                  <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className="text-2xl font-bold font-mono tabular-nums text-emerald-600 dark:text-emerald-400">
-                      {liveEfficiency.toFixed(2)}
-                    </span>
-                    <span className="text-xs font-mono text-slate-400">%</span>
-                  </div>
-                  <span className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 block">
-                    {liveGrade.label}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-xs text-slate-500 dark:text-slate-400 block">
-                    سعة الامتزاز الحيوي (qe)
-                  </span>
-                  <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className="text-2xl font-bold font-mono tabular-nums text-teal-600 dark:text-teal-400">
-                      {liveQe.toFixed(1)}
-                    </span>
-                    <span className="text-xs font-mono text-slate-400">
-                      mg/g
-                    </span>
-                  </div>
-                  <span className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 block">
-                    {numericCf <= currentSpec.standardLimit
-                      ? `● مطابق لـ ${userSettings.preferredStandard}`
-                      : `▲ أعلى من حد ${userSettings.preferredStandard}`}
-                  </span>
-                </div>
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  حساب تلقائي للمتوسط (Mean)، الانحراف المعياري (±SD)، واختبار
+                  المعنوية (ANOVA / t-test عند P ≤ 0.05)
+                </p>
               </div>
-            </div>
-
-            {validationError && (
-              <p
-                role="alert"
-                className="text-xs text-rose-600 dark:text-rose-400 font-medium"
-              >
-                {validationError}
-              </p>
-            )}
-
-            <button
-              type="submit"
-              className="w-full py-2.5 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer"
-            >
-              <PlusCircle className="w-4 h-4 shrink-0" />
-              <span>إضافة القراءة إلى الجدول وتحديث الرسم البياني</span>
-            </button>
-          </form>
-        </div>
-
-        {/* Chart.js Panel (7 cols) */}
-        <div
-          className={`lg:col-span-7 rounded-xl border p-6 flex flex-col justify-between transition-colors ${
-            darkMode
-              ? 'bg-slate-900 border-slate-800'
-              : 'bg-white border-slate-200'
-          }`}
-        >
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-4 pb-3 border-b border-slate-200 dark:border-slate-800">
-            <div>
-              <h2 className="text-lg font-bold flex items-center gap-2">
-                <Beaker className="w-5 h-5 text-teal-600 shrink-0" />
-                <span>
-                  المخطط المقارن للتراكيز ومنحنى كفاءة الإزالة (Chart.js)
-                </span>
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                مقارنة القراءات قبل المعالجة (Ci) وبعدها (Cf) مع النسبة المئوية
-                لكفاءة الإزالة
-              </p>
-            </div>
-            <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 font-mono">
-              <span>إجمالي التجارب: {records.length}</span>
-              <span aria-hidden="true">·</span>
-              <span>
-                متوسط الكفاءة:{' '}
-                {records.length > 0
-                  ? (
-                      records.reduce((s, r) => s + r.efficiency, 0) /
-                      records.length
-                    ).toFixed(2)
-                  : '0.00'}
-                %
+              <span className="text-xs font-mono px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold">
+                {activeUnit}
               </span>
             </div>
+
+            <form onSubmit={handleSubmit} className="space-y-3.5">
+              <div>
+                <label
+                  htmlFor="pollutant-select"
+                  className="block text-xs font-semibold mb-1"
+                >
+                  نوع الملوث أو المؤشر البيئي
+                </label>
+                <select
+                  id="pollutant-select"
+                  value={selectedPollutantId}
+                  onChange={(e) => handlePollutantChange(e.target.value)}
+                  className={`w-full rounded-lg border px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                    darkMode
+                      ? 'bg-slate-950 border-slate-700 text-slate-100'
+                      : 'bg-slate-50 border-slate-300 text-slate-900'
+                  }`}
+                >
+                  {POLLUTANT_SPECS.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} — الحد القياسي: {p.standardLimit}{' '}
+                      {resolveDisplayUnit(p.id, p.unit)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Triplicate Replicates Before Treatment (Ci: R1, R2, R3) */}
+              <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-amber-600 dark:text-amber-400">
+                    قراءات المكررات قبل المعالجة Ci ({activeUnit}):
+                  </span>
+                  <span
+                    className="font-mono font-bold"
+                    data-testid="live-ci-mean-sd"
+                  >
+                    Mean: {liveBiostats.ciMean} ± {liveBiostats.ciSd}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label
+                      htmlFor="ci-r1"
+                      className="block text-[11px] text-slate-400 mb-0.5"
+                    >
+                      مكرر R1 (Ci)
+                    </label>
+                    <input
+                      id="ci-r1"
+                      type="number"
+                      step="any"
+                      value={ciR1}
+                      onChange={(e) => setCiR1(e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="ci-r2"
+                      className="block text-[11px] text-slate-400 mb-0.5"
+                    >
+                      مكرر R2 (Ci)
+                    </label>
+                    <input
+                      id="ci-r2"
+                      type="number"
+                      step="any"
+                      value={ciR2}
+                      onChange={(e) => setCiR2(e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="ci-r3"
+                      className="block text-[11px] text-slate-400 mb-0.5"
+                    >
+                      مكرر R3 (Ci)
+                    </label>
+                    <input
+                      id="ci-r3"
+                      type="number"
+                      step="any"
+                      value={ciR3}
+                      onChange={(e) => setCiR3(e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Triplicate Replicates After Treatment (Cf: R1, R2, R3) */}
+              <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-cyan-600 dark:text-cyan-400">
+                    قراءات المكررات بعد المعالجة Cf ({activeUnit}):
+                  </span>
+                  <span
+                    className="font-mono font-bold"
+                    data-testid="live-cf-mean-sd"
+                  >
+                    Mean: {liveBiostats.cfMean} ± {liveBiostats.cfSd}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label
+                      htmlFor="cf-r1"
+                      className="block text-[11px] text-slate-400 mb-0.5"
+                    >
+                      مكرر R1 (Cf)
+                    </label>
+                    <input
+                      id="cf-r1"
+                      type="number"
+                      step="any"
+                      value={cfR1}
+                      onChange={(e) => setCfR1(e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="cf-r2"
+                      className="block text-[11px] text-slate-400 mb-0.5"
+                    >
+                      مكرر R2 (Cf)
+                    </label>
+                    <input
+                      id="cf-r2"
+                      type="number"
+                      step="any"
+                      value={cfR2}
+                      onChange={(e) => setCfR2(e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="cf-r3"
+                      className="block text-[11px] text-slate-400 mb-0.5"
+                    >
+                      مكرر R3 (Cf)
+                    </label>
+                    <input
+                      id="cf-r3"
+                      type="number"
+                      step="any"
+                      value={cfR3}
+                      onChange={(e) => setCfR3(e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="treatment-select"
+                  className="block text-xs font-semibold mb-1"
+                >
+                  نوع المعالجة الحيوية أو الكيميائية المستخدمة
+                </label>
+                <select
+                  id="treatment-select"
+                  value={selectedTreatment}
+                  onChange={(e) => setSelectedTreatment(e.target.value)}
+                  className={`w-full rounded-lg border px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                    darkMode
+                      ? 'bg-slate-950 border-slate-700 text-slate-100'
+                      : 'bg-slate-50 border-slate-300 text-slate-900'
+                  }`}
+                >
+                  {TREATMENT_TYPES.map((t) => (
+                    <option key={t.id} value={t.name}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2.5">
+                <div>
+                  <label
+                    htmlFor="dose-input"
+                    className="block text-xs font-semibold mb-1"
+                  >
+                    الجرعة ({userSettings.concentrationUnit})
+                  </label>
+                  <input
+                    id="dose-input"
+                    type="number"
+                    step="any"
+                    value={doseStr}
+                    onChange={(e) => setDoseStr(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="time-input"
+                    className="block text-xs font-semibold mb-1"
+                  >
+                    وقت التماس (دقيقة)
+                  </label>
+                  <input
+                    id="time-input"
+                    type="number"
+                    step="any"
+                    value={timeStr}
+                    onChange={(e) => setTimeStr(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="ph-input"
+                    className="block text-xs font-semibold mb-1"
+                  >
+                    الأس الهيدروجيني pH
+                  </label>
+                  <input
+                    id="ph-input"
+                    type="number"
+                    step="0.1"
+                    min="1"
+                    max="14"
+                    value={phStr}
+                    onChange={(e) => setPhStr(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+
+              {formError && (
+                <div
+                  role="alert"
+                  className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-300 text-xs"
+                >
+                  {formError}
+                </div>
+              )}
+
+              {/* Live Biostatistics & Removal Efficiency Preview Box */}
+              <div
+                className={`p-3.5 rounded-xl border space-y-2 ${
+                  darkMode
+                    ? 'bg-emerald-950/30 border-emerald-800/60'
+                    : 'bg-emerald-50/70 border-emerald-200'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 block">
+                      نسبة كفاءة الإزالة المئوية (RE%)
+                    </span>
+                    <span
+                      className="text-2xl font-extrabold font-mono text-emerald-600 dark:text-emerald-400"
+                      data-testid="live-efficiency-output"
+                    >
+                      {liveBiostats.efficiency}%
+                    </span>
+                  </div>
+                  <div className="text-left">
+                    <span className="text-xs text-slate-500 dark:text-slate-400 block">
+                      سعة الامتزاز الحيوي (qe)
+                    </span>
+                    <span className="text-sm font-bold font-mono">
+                      {liveQe} mg/g
+                    </span>
+                  </div>
+                </div>
+
+                {/* ANOVA / t-test Statistical Significance Indicator */}
+                <div className="pt-2 border-t border-emerald-500/20 flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <div
+                    className="flex items-center gap-1.5 font-bold"
+                    data-testid="live-significance-badge"
+                  >
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full inline-block ${
+                        liveBiostats.isSignificant
+                          ? 'bg-emerald-500'
+                          : 'bg-amber-500'
+                      }`}
+                    />
+                    <span
+                      className={
+                        liveBiostats.isSignificant
+                          ? 'text-emerald-700 dark:text-emerald-300'
+                          : 'text-amber-700 dark:text-amber-300'
+                      }
+                    >
+                      {liveBiostats.significanceBadge}
+                    </span>
+                  </div>
+                  <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                    t = {liveBiostats.tStat} · F = {liveBiostats.fStat} · P ={' '}
+                    {liveBiostats.pValue} · {liveGrade.label}
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-2.5 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>إضافة القراءة الإحصائية (R1–R3) إلى جدول النتائج</span>
+              </button>
+            </form>
+          </div>
+        </div>
+
+        {/* Dual-Axis Chart.js Card (7 cols) */}
+        <div
+          className={`lg:col-span-7 rounded-xl border p-6 flex flex-col justify-between ${
+            darkMode
+              ? 'bg-slate-900 border-slate-800'
+              : 'bg-white border-slate-200'
+          }`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-4 mb-4 border-b border-slate-200 dark:border-slate-800">
+            <div>
+              <h2 className="text-base font-bold flex items-center gap-2">
+                <Activity className="w-5 h-5 text-cyan-600 shrink-0" />
+                <span>
+                  المخطط المقارن للتراكيز (Ci vs Cf Mean) ومنحنى كفاءة الإزالة
+                </span>
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                تمثيل بياني تفاعلي (Chart.js) للمتوسطات الحسابية للمكررات الثلاثة
+                ونسب الإزالة
+              </p>
+            </div>
+            <span className="text-xs font-mono text-slate-400">
+              إجمالي التجارب: {records.length} (n = 3 replicates)
+            </span>
           </div>
 
-          <div
-            className="relative w-full h-80 lg:h-96 my-auto"
-            data-testid="efficiency-chart-container"
-          >
-            <canvas ref={chartCanvasRef} />
+          <div className="relative h-[380px] w-full">
+            <canvas
+              ref={chartCanvasRef}
+              aria-label="الرسم البياني لكفاءة إزالة الملوثات"
+            />
           </div>
 
-          <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
+          <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between text-xs text-slate-500 dark:text-slate-400 gap-2">
             <span>
-              المصدر: تجارب مختبر الدراسات الأولية - قسم علوم الحياة (الباحث:
-              مؤمن خلف عبدالله)
+              المعادلة القياسية: RE(%) = ((Ci Mean - Cf Mean) / Ci Mean) × 100
             </span>
-            <span className="font-mono">
-              Standard Reference: {userSettings.preferredStandard} · Unit:{' '}
-              {userSettings.concentrationUnit}
-            </span>
+            <span>مستوى الدلالة المعتمد: Alpha = 0.05 (ANOVA / t-test)</span>
           </div>
         </div>
       </div>
 
-      {/* Dynamic Results Table */}
+      {/* Dynamic Biostatistics & Experimental Results Table */}
       <div
-        className={`rounded-xl border p-6 transition-colors ${
+        className={`rounded-xl border p-6 ${
           darkMode
             ? 'bg-slate-900 border-slate-800'
             : 'bg-white border-slate-200'
         }`}
       >
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
+        <div className="flex flex-wrap items-center justify-between gap-4 pb-4 mb-4 border-b border-slate-200 dark:border-slate-800">
           <div>
             <h3 className="text-base font-bold">
-              سجل القراءات المختبرية ونتائج كفاءة الإزالة الديناميكي
+              سجل القراءات المختبرية والتحليل الإحصائي الحيوي (Triplicate Mean ±
+              SD &amp; Significance)
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              تُرسل هذه البيانات تلقائياً إلى المفسر العلمي الذكي في التبويب
-              الخامس لصياغة فصل النتائج والمناقشة
+              يتضمن المتوسط الحسابي والانحراف المعياري للمكررات الثلاثة (R1, R2,
+              R3)، كفاءة الإزالة، سعة الامتزاز (qe)، واختبار المعنوية (P ≤ 0.05)
             </p>
           </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={handleExportCSV}
-              className="px-3.5 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-medium hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <Download className="w-3.5 h-3.5 text-emerald-600" />
-              <span>تصدير الجدول (CSV)</span>
+              <Download className="w-3.5 h-3.5" />
+              <span>تصدير الجدول الإحصائي (CSV)</span>
             </button>
             <button
               type="button"
               onClick={onResetRecords}
-              className="px-3.5 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-medium hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-              <span>استعادة البيانات التجريبية</span>
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>استعادة القراءات المرجعية</span>
             </button>
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-right border-collapse text-sm">
+          <table
+            className="w-full text-right border-collapse text-xs"
+            data-testid="experiments-table"
+          >
             <thead>
               <tr
-                className={`border-b text-xs ${
+                className={`border-b ${
                   darkMode
                     ? 'border-slate-800 text-slate-400 bg-slate-950/50'
                     : 'border-slate-200 text-slate-600 bg-slate-50'
                 }`}
               >
                 <th className="py-3 px-3 font-semibold">المؤشر البيئي</th>
-                <th className="py-3 px-3 font-semibold">قبل المعالجة (Ci)</th>
-                <th className="py-3 px-3 font-semibold">بعد المعالجة (Cf)</th>
+                <th className="py-3 px-3 font-semibold">
+                  قبل المعالجة (Ci ± SD)
+                </th>
+                <th className="py-3 px-3 font-semibold">
+                  بعد المعالجة (Cf ± SD)
+                </th>
                 <th className="py-3 px-3 font-semibold">كفاءة الإزالة (%)</th>
+                <th className="py-3 px-3 font-semibold">
+                  المعنوية الإحصائية (t-test / ANOVA)
+                </th>
                 <th className="py-3 px-3 font-semibold">سعة الامتزاز (qe)</th>
-                <th className="py-3 px-3 font-semibold">المادة المعالجة</th>
-                <th className="py-3 px-3 font-semibold">الظروف التشغيلية</th>
-                <th className="py-3 px-3 font-semibold">المطابقة القياسية</th>
+                <th className="py-3 px-3 font-semibold">نوع المعالجة والجرعة</th>
+                <th className="py-3 px-3 font-semibold">المطابقة</th>
                 <th className="py-3 px-3 font-semibold text-center">إجراء</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-              {records.map((rec) => {
-                const displayUnit = formatRecordUnit(rec);
-                return (
-                  <tr
-                    key={rec.id}
-                    className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
-                  >
-                    <td className="py-3 px-3 font-medium">
-                      <div>{rec.pollutantName}</div>
-                      <div className="text-xs text-slate-400 font-mono">
-                        الحد القياسي: {rec.standardLimit} {displayUnit}
-                      </div>
-                    </td>
-                    <td className="py-3 px-3 font-mono tabular-nums text-amber-600 dark:text-amber-400 font-semibold">
-                      {rec.ci} <span className="text-xs">{displayUnit}</span>
-                    </td>
-                    <td className="py-3 px-3 font-mono tabular-nums text-teal-600 dark:text-teal-400 font-semibold">
-                      {rec.cf} <span className="text-xs">{displayUnit}</span>
-                    </td>
-                    <td className="py-3 px-3 font-mono tabular-nums font-bold text-emerald-600 dark:text-emerald-400">
-                      {rec.efficiency.toFixed(2)}%
-                    </td>
-                    <td className="py-3 px-3 font-mono tabular-nums">
-                      {rec.adsorptionCapacityQe}{' '}
-                      <span className="text-xs text-slate-400">mg/g</span>
-                    </td>
-                    <td className="py-3 px-3 text-xs max-w-48">
-                      {rec.treatmentType}
-                    </td>
-                    <td className="py-3 px-3 text-xs font-mono text-slate-500 dark:text-slate-400">
-                      {rec.doseMgL} {userSettings.concentrationUnit} ·{' '}
-                      {rec.contactTimeMin} د · pH {rec.ph}
-                    </td>
-                    <td className="py-3 px-3 text-xs">
-                      {rec.isCompliant ? (
-                        <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
-                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                          <span>مطابق ({userSettings.preferredStandard})</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
-                          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                          <span>يتطلب مرحلة ثانية</span>
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3 px-3 text-center">
-                      <button
-                        type="button"
-                        onClick={() => onDeleteRecord(rec.id)}
-                        aria-label={`حذف قراءة ${rec.pollutantName}`}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-              {records.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={9}
-                    className="py-8 text-center text-slate-400 text-sm"
-                  >
-                    لا توجد قراءات مسجلة حالياً. أضف قراءة جديدة من النموذج أعلاه
-                    أو اضغط &quot;استعادة البيانات التجريبية&quot;.
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-800 font-mono tabular-nums">
+              {records.map((rec) => (
+                <tr
+                  key={rec.id}
+                  className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
+                >
+                  <td className="py-3 px-3 font-sans font-bold">
+                    {rec.pollutantName}
+                  </td>
+                  <td className="py-3 px-3 text-amber-600 dark:text-amber-400">
+                    {rec.ci} ± {rec.ciSd}{' '}
+                    <span className="text-[11px] text-slate-400">
+                      {rec.unit}
+                    </span>
+                  </td>
+                  <td className="py-3 px-3 text-cyan-600 dark:text-cyan-400 font-semibold">
+                    {rec.cf} ± {rec.cfSd}{' '}
+                    <span className="text-[11px] text-slate-400">
+                      {rec.unit}
+                    </span>
+                  </td>
+                  <td className="py-3 px-3">
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                      {rec.efficiency}%
+                    </span>
+                  </td>
+                  <td className="py-3 px-3 font-sans">
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={`w-2 h-2 rounded-full inline-block ${
+                          rec.isSignificant ? 'bg-emerald-500' : 'bg-amber-500'
+                        }`}
+                      />
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                        {rec.isSignificant
+                          ? 'فرق معنوي (P ≤ 0.05)'
+                          : 'غير معنوي'}
+                      </span>
+                      <span className="font-mono text-[10px] text-slate-400">
+                        (t={rec.tStat})
+                      </span>
+                    </div>
+                  </td>
+                  <td className="py-3 px-3">{rec.adsorptionCapacityQe} mg/g</td>
+                  <td className="py-3 px-3 font-sans">
+                    <div>{rec.treatmentType}</div>
+                    <div className="text-[11px] text-slate-400 font-mono">
+                      {rec.doseMgL} mg/L · {rec.contactTimeMin} min · pH{' '}
+                      {rec.ph}
+                    </div>
+                  </td>
+                  <td className="py-3 px-3 font-sans">
+                    {rec.isCompliant ? (
+                      <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>مطابق ({rec.standardLimit}≤)</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-semibold">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        <span>أعلى من الحد ({rec.standardLimit})</span>
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-3 px-3 text-center">
+                    <button
+                      type="button"
+                      onClick={() => onDeleteRecord(rec.id)}
+                      aria-label={`حذف قراءة ${rec.pollutantName}`}
+                      className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </td>
                 </tr>
-              )}
+              ))}
             </tbody>
           </table>
         </div>

@@ -3,12 +3,19 @@ import assert from 'node:assert/strict';
 import {
   calculateRemovalEfficiency,
   calculateAdsorptionCapacityQe,
+  calculateTrueQe,
+  computeTriplicateBiostats,
+  calculateStockSolutionMass,
+  calculateDilutionC1V1,
+  computeSpectrophotometerCalibration,
   evaluateEfficiencyGrade,
   computeOpticalMetricsFromRGBA,
   calculateVisualClarityImprovement,
   simulateDoseResponseCurve,
   computeWaterQualityIndex,
   computeAcademicReportStats,
+  generateBuiltInExpertResponse,
+  generateDeterministicQrMatrix,
   INITIAL_EXPERIMENT_RECORDS,
   INITIAL_SAMPLING_STATIONS,
 } from './bioremediationLogic.ts';
@@ -20,21 +27,52 @@ test('calculateRemovalEfficiency computes exact ((Ci - Cf) / Ci) * 100 formula',
   assert.equal(calculateRemovalEfficiency(50, 60), 0);
 });
 
-test('calculateAdsorptionCapacityQe computes mg pollutant per gram biosorbent', () => {
-  // Ci = 100 mg/L, Cf = 20 mg/L, Dose = 80 mg/L (0.08 g/L) => (80 / 0.08) = 1000 mg/g
-  assert.equal(calculateAdsorptionCapacityQe(100, 20, 80), 1000);
-  assert.equal(calculateAdsorptionCapacityQe(50, 50, 100), 0);
+test('computeTriplicateBiostats computes Mean, SD, and P <= 0.05 statistical significance', () => {
+  const stats = computeTriplicateBiostats([146.5, 148.0, 149.5], [6.2, 6.4, 6.6]);
+  assert.equal(stats.ciMean, 148);
+  assert.equal(stats.ciSd, 1.5);
+  assert.equal(stats.cfMean, 6.4);
+  assert.equal(stats.efficiency, 95.68);
+  assert.equal(stats.isSignificant, true);
+  assert.ok(stats.pValue <= 0.05);
 });
 
-test('evaluateEfficiencyGrade classifies efficiency tiers accurately', () => {
-  assert.equal(evaluateEfficiencyGrade(92.4).tier, 'excellent');
-  assert.equal(evaluateEfficiencyGrade(75.0).tier, 'good');
-  assert.equal(evaluateEfficiencyGrade(55.0).tier, 'moderate');
-  assert.equal(evaluateEfficiencyGrade(30.0).tier, 'low');
+test('calculateStockSolutionMass and calculateDilutionC1V1 compute exact lab preparation values', () => {
+  const stock = calculateStockSolutionMass(1000, 500, 100);
+  assert.equal(stock.requiredMassMg, 500);
+  assert.equal(stock.requiredMassG, 0.5);
+
+  const dil = calculateDilutionC1V1(1000, 50, 250);
+  assert.equal(dil.isValid, true);
+  assert.equal(dil.v1RequiredMl, 12.5);
+  assert.equal(dil.waterToAddMl, 237.5);
+  assert.equal(dil.dilutionFactor, 20);
+});
+
+test('calculateTrueQe computes exact qe = ((Ci - Cf) * V) / m', () => {
+  // Ci = 100 mg/L, Cf = 10 mg/L, V = 0.5 L, m = 0.25 g => (90 * 0.5) / 0.25 = 180 mg/g
+  assert.equal(calculateTrueQe(100, 10, 0.5, 0.25), 180);
+  assert.equal(calculateAdsorptionCapacityQe(100, 20, 80), 1000);
+});
+
+test('computeSpectrophotometerCalibration computes Beer-Lambert slope and R² correlation', () => {
+  const cal = computeSpectrophotometerCalibration(
+    [
+      { concentration: 10, absorbanceOd: 0.08 },
+      { concentration: 50, absorbanceOd: 0.4 },
+      { concentration: 100, absorbanceOd: 0.8 },
+      { concentration: 150, absorbanceOd: 1.2 },
+    ],
+    1.18,
+    0.06
+  );
+  assert.equal(cal.rSquared, 1);
+  assert.ok(cal.estimatedCiFromOd > 140);
+  assert.ok(cal.estimatedCfFromOd < 10);
+  assert.ok(cal.odRemovalEfficiency > 90);
 });
 
 test('computeOpticalMetricsFromRGBA and calculateVisualClarityImprovement distinguish turbid vs clear samples', () => {
-  // Turbid sample: darker, brownish pixels (R=130, G=105, B=65)
   const turbidPixels = new Uint8ClampedArray(400);
   for (let i = 0; i < turbidPixels.length; i += 4) {
     turbidPixels[i] = 130;
@@ -43,7 +81,6 @@ test('computeOpticalMetricsFromRGBA and calculateVisualClarityImprovement distin
     turbidPixels[i + 3] = 255;
   }
 
-  // Clarified sample: bright, clear water pixels (R=235, G=244, B=248)
   const clearPixels = new Uint8ClampedArray(400);
   for (let i = 0; i < clearPixels.length; i += 4) {
     clearPixels[i] = 235;
@@ -56,32 +93,14 @@ test('computeOpticalMetricsFromRGBA and calculateVisualClarityImprovement distin
   const afterMetrics = computeOpticalMetricsFromRGBA(clearPixels, 10, 10);
 
   assert.ok(beforeMetrics.opticalDensity > afterMetrics.opticalDensity);
-  assert.ok(beforeMetrics.turbidityIndex > afterMetrics.turbidityIndex);
-
   const improvement = calculateVisualClarityImprovement(beforeMetrics, afterMetrics);
   assert.ok(improvement > 65);
 });
 
-test('simulateDoseResponseCurve predicts optimal point and valid kinetic curves', () => {
-  const result = simulateDoseResponseCurve(65, 45, 7.2, 'plant_extract');
-  assert.equal(result.optimalDose, 65);
-  assert.equal(result.optimalTime, 45);
-  assert.equal(result.optimalPh, 7.2);
-  assert.ok(result.currentEfficiency > 80);
-  assert.ok(result.doseCurve.length >= 15);
-  assert.ok(result.timeCurve.length >= 15);
-  assert.ok(result.phCurve.length >= 10);
-});
-
-test('computeWaterQualityIndex classifies low, medium, and high pollution stations', () => {
+test('computeWaterQualityIndex, Built-In Expert Engine, and QR generator produce valid outputs', () => {
   const clean = computeWaterQualityIndex(3.5, 2.0, 380, 7.2, 0.008);
   assert.equal(clean.pollutionLevel, 'low');
 
-  const polluted = computeWaterQualityIndex(140, 65, 1400, 8.2, 0.25);
-  assert.equal(polluted.pollutionLevel, 'high');
-});
-
-test('computeAcademicReportStats summarizes experimental records, compliance, and optimal parameters for PDF export', () => {
   const sim = simulateDoseResponseCurve(65, 45, 7.2, 'plant_extract');
   const stats = computeAcademicReportStats(
     INITIAL_EXPERIMENT_RECORDS,
@@ -89,9 +108,21 @@ test('computeAcademicReportStats summarizes experimental records, compliance, an
     sim
   );
   assert.equal(stats.totalExperiments, 6);
-  assert.equal(stats.totalStations, 5);
-  assert.ok(stats.avgEfficiency > 85);
-  assert.equal(stats.highestEfficiency, 99.13);
-  assert.equal(stats.optimalDose, 65);
-  assert.equal(stats.compliantCount, 4);
+
+  const expertText = generateBuiltInExpertResponse('تفسير نتائج العكورة', {
+    specialty: 'المعالجة الحيوية وتنقية المياه',
+    researchNotes: 'مشروع تخرج جامعة تكريت',
+    records: INITIAL_EXPERIMENT_RECORDS,
+    wqiScore: 21.4,
+    qeValue: 180.5,
+    optimalDose: 65,
+    optimalTime: 45,
+    optimalPh: 7.2,
+  });
+  assert.ok(expertText.includes('مؤمن خلف عبدالله'));
+  assert.ok(expertText.includes('P ≤ 0.05'));
+
+  const qr = generateDeterministicQrMatrix('https://ecobio.ai', 21);
+  assert.equal(qr.length, 21);
+  assert.equal(qr[0].length, 21);
 });

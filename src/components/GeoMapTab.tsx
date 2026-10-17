@@ -452,14 +452,17 @@ export const GeoMapTab: React.FC<GeoMapTabProps> = ({
             </div>
 
             <div className="flex items-center gap-4 text-xs font-medium">
-              <span className="text-emerald-600 dark:text-emerald-400">
-                ● منخفض (WQI &lt; 35)
+              <span className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                <span>منخفض (WQI &lt; 35)</span>
               </span>
-              <span className="text-amber-600 dark:text-amber-400">
-                ▲ متوسط (35 - 68)
+              <span className="inline-flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
+                <span>متوسط (35 - 68)</span>
               </span>
-              <span className="text-rose-600 dark:text-rose-400">
-                ✖ مرتفع (&gt; 68)
+              <span className="inline-flex items-center gap-1.5 text-rose-600 dark:text-rose-400">
+                <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" />
+                <span>مرتفع (&gt; 68)</span>
               </span>
             </div>
           </div>
@@ -521,8 +524,19 @@ export const GeoMapTab: React.FC<GeoMapTabProps> = ({
                     {st.turbidityNTU} NTU · {st.bodMgL} mg/L · {st.tdsMgL} mg/L
                   </td>
                   <td className="py-3 px-3 text-xs font-semibold">
-                    <span className={levelColorClass(st.pollutionLevel)}>
-                      {levelText(st.pollutionLevel)} — WQI: {st.wqi}
+                    <span
+                      className={`inline-flex items-center gap-1.5 ${levelColorClass(
+                        st.pollutionLevel
+                      )}`}
+                    >
+                      <span
+                        className={`w-2 h-2 rounded-full inline-block ${levelDotClass(
+                          st.pollutionLevel
+                        )}`}
+                      />
+                      <span>
+                        {levelText(st.pollutionLevel)} — WQI: {st.wqi}
+                      </span>
                     </span>
                   </td>
                   <td className="py-3 px-3 text-center">
