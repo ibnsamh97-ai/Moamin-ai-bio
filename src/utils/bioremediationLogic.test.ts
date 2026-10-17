@@ -8,6 +8,9 @@ import {
   calculateVisualClarityImprovement,
   simulateDoseResponseCurve,
   computeWaterQualityIndex,
+  computeAcademicReportStats,
+  INITIAL_EXPERIMENT_RECORDS,
+  INITIAL_SAMPLING_STATIONS,
 } from './bioremediationLogic.ts';
 
 test('calculateRemovalEfficiency computes exact ((Ci - Cf) / Ci) * 100 formula', () => {
@@ -76,4 +79,19 @@ test('computeWaterQualityIndex classifies low, medium, and high pollution statio
 
   const polluted = computeWaterQualityIndex(140, 65, 1400, 8.2, 0.25);
   assert.equal(polluted.pollutionLevel, 'high');
+});
+
+test('computeAcademicReportStats summarizes experimental records, compliance, and optimal parameters for PDF export', () => {
+  const sim = simulateDoseResponseCurve(65, 45, 7.2, 'plant_extract');
+  const stats = computeAcademicReportStats(
+    INITIAL_EXPERIMENT_RECORDS,
+    INITIAL_SAMPLING_STATIONS,
+    sim
+  );
+  assert.equal(stats.totalExperiments, 6);
+  assert.equal(stats.totalStations, 5);
+  assert.ok(stats.avgEfficiency > 85);
+  assert.equal(stats.highestEfficiency, 99.13);
+  assert.equal(stats.optimalDose, 65);
+  assert.equal(stats.compliantCount, 4);
 });

@@ -141,7 +141,7 @@ export default function App() {
   return (
     <div className={darkMode ? 'dark' : ''}>
       <div
-        className={`min-h-screen transition-colors ${
+        className={`min-h-screen overflow-x-hidden transition-colors ${
           darkMode
             ? 'bg-slate-950 text-slate-100'
             : 'bg-slate-50 text-slate-900'
@@ -149,7 +149,7 @@ export default function App() {
       >
         {/* Top Navigation Bar (Strict 3-Zone Top Bar Contract) */}
         <header
-          className={`flex items-center justify-between gap-8 px-6 py-4 border-b transition-colors ${
+          className={`flex items-center justify-between gap-4 sm:gap-8 px-4 sm:px-6 py-4 border-b transition-colors ${
             darkMode
               ? 'bg-slate-900/95 border-slate-800'
               : 'bg-white border-slate-200'
@@ -421,7 +421,7 @@ export default function App() {
           <div
             role="tablist"
             aria-label="التبويبات الوظيفية للمنصة"
-            className={`grid grid-cols-2 sm:grid-cols-5 gap-2 p-1.5 rounded-xl border ${
+            className={`grid grid-cols-1 sm:grid-cols-5 gap-1.5 sm:gap-2 p-1.5 rounded-xl border ${
               darkMode
                 ? 'bg-slate-900 border-slate-800'
                 : 'bg-white border-slate-200'
@@ -432,7 +432,7 @@ export default function App() {
               role="tab"
               aria-selected={activeTab === 'calculator'}
               onClick={() => setActiveTab('calculator')}
-              className={`py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+              className={`py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer ${
                 activeTab === 'calculator'
                   ? 'bg-emerald-600 text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -447,7 +447,7 @@ export default function App() {
               role="tab"
               aria-selected={activeTab === 'vision'}
               onClick={() => setActiveTab('vision')}
-              className={`py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+              className={`py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer ${
                 activeTab === 'vision'
                   ? 'bg-emerald-600 text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -462,7 +462,7 @@ export default function App() {
               role="tab"
               aria-selected={activeTab === 'simulator'}
               onClick={() => setActiveTab('simulator')}
-              className={`py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+              className={`py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer ${
                 activeTab === 'simulator'
                   ? 'bg-emerald-600 text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -477,7 +477,7 @@ export default function App() {
               role="tab"
               aria-selected={activeTab === 'geomap'}
               onClick={() => setActiveTab('geomap')}
-              className={`py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+              className={`py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer ${
                 activeTab === 'geomap'
                   ? 'bg-emerald-600 text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -492,7 +492,7 @@ export default function App() {
               role="tab"
               aria-selected={activeTab === 'discussion'}
               onClick={() => setActiveTab('discussion')}
-              className={`col-span-2 sm:col-span-1 py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+              className={`py-2.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer ${
                 activeTab === 'discussion'
                   ? 'bg-emerald-600 text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -546,9 +546,11 @@ export default function App() {
             {activeTab === 'discussion' && (
               <DiscussionAndScienceTab
                 records={records}
+                stations={stations}
                 simulationResult={simulationResult}
                 stationsCount={stations.length}
                 darkMode={darkMode}
+                userSettings={userSettings}
               />
             )}
           </div>

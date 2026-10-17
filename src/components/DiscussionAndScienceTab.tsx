@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   FileText,
   Sparkles,
@@ -8,17 +8,33 @@ import {
   BookOpen,
   ExternalLink,
   Search,
+  Download,
+  FileCheck2,
+  Sliders,
+  Eye,
 } from 'lucide-react';
 import {
   ExperimentRecord,
+  SamplingStation,
   SimulationResult,
+  computeAcademicReportStats,
 } from '../utils/bioremediationLogic';
+import { UserSettings } from './SettingsModal';
+import {
+  AcademicReportMetadata,
+  DEFAULT_REPORT_METADATA,
+  renderReportPage1Canvas,
+  renderReportPage2Canvas,
+  generateAndDownloadAcademicPDF,
+} from '../utils/pdfReportGenerator';
 
 interface DiscussionAndScienceTabProps {
   records: ExperimentRecord[];
+  stations: SamplingStation[];
   simulationResult: SimulationResult;
   stationsCount: number;
   darkMode: boolean;
+  userSettings: UserSettings;
 }
 
 interface PubChemCompound {
@@ -125,7 +141,14 @@ const LITERATURE_TOPICS = [
 
 export const DiscussionAndScienceTab: React.FC<
   DiscussionAndScienceTabProps
-> = ({ records, simulationResult, stationsCount, darkMode }) => {
+> = ({
+  records,
+  stations,
+  simulationResult,
+  stationsCount,
+  darkMode,
+  userSettings,
+}) => {
   const buildInitialDiscussion = () => {
     const avgEff =
       records.length > 0
@@ -162,6 +185,81 @@ ${
   const [customFocus, setCustomFocus] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
+
+  // Academic PDF Report Builder State
+  const [reportMeta, setReportMeta] = useState<AcademicReportMetadata>(
+    DEFAULT_REPORT_METADATA
+  );
+  const [showReportPreview, setShowReportPreview] = useState<boolean>(true);
+  const [isExportingPdf, setIsExportingPdf] = useState<boolean>(false);
+  const [pdfExportSuccess, setPdfExportSuccess] = useState<boolean>(false);
+
+  const page1CanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const page2CanvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  const reportStats = computeAcademicReportStats(
+    records,
+    stations,
+    simulationResult
+  );
+
+  // Render live A4 page previews onto the preview canvases whenever data or metadata changes
+  useEffect(() => {
+    if (!showReportPreview) return;
+
+    const p1 = renderReportPage1Canvas(
+      records,
+      stations,
+      simulationResult,
+      userSettings,
+      reportMeta
+    );
+    const p2 = renderReportPage2Canvas(discussionText, stations, reportMeta);
+
+    if (page1CanvasRef.current) {
+      const ctx1 = page1CanvasRef.current.getContext('2d');
+      if (ctx1) {
+        page1CanvasRef.current.width = p1.width;
+        page1CanvasRef.current.height = p1.height;
+        ctx1.drawImage(p1, 0, 0);
+      }
+    }
+
+    if (page2CanvasRef.current) {
+      const ctx2 = page2CanvasRef.current.getContext('2d');
+      if (ctx2) {
+        page2CanvasRef.current.width = p2.width;
+        page2CanvasRef.current.height = p2.height;
+        ctx2.drawImage(p2, 0, 0);
+      }
+    }
+  }, [
+    showReportPreview,
+    records,
+    stations,
+    simulationResult,
+    userSettings,
+    reportMeta,
+    discussionText,
+  ]);
+
+  const handleDownloadPdfReport = () => {
+    setIsExportingPdf(true);
+    try {
+      generateAndDownloadAcademicPDF(
+        records,
+        stations,
+        simulationResult,
+        discussionText,
+        userSettings,
+        reportMeta
+      );
+      setPdfExportSuccess(true);
+      setTimeout(() => setPdfExportSuccess(false), 4500);
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
 
   // Bioscience State: PubChem & Europe PMC
   const [selectedCompound, setSelectedCompound] = useState<PubChemCompound>(
@@ -336,12 +434,12 @@ ${
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               توليد فصل &quot;النتائج والمناقشة (Results &amp; Discussion)&quot;
-              بأسلوب أكاديمي رصين جاهز للنسخ في بحث التخرج استناداً لقراءات
-              الجداول
+              بأسلوب أكاديمي رصين جاهز للنسخ أو التصدير المباشر كتقرير PDF
+              لبحث التخرج
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={handleCopy}
@@ -355,9 +453,23 @@ ${
               ) : (
                 <>
                   <Copy className="w-3.5 h-3.5 text-slate-500" />
-                  <span>نسخ النص الأكاديمي لبحث التخرج</span>
+                  <span>نسخ النص الأكاديمي</span>
                 </>
               )}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDownloadPdfReport}
+              disabled={isExportingPdf}
+              className="px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>
+                {isExportingPdf
+                  ? 'جاري تجهيز ملف PDF...'
+                  : 'تحميل تقرير البحث الكامل (PDF)'}
+              </span>
             </button>
 
             <button
@@ -415,7 +527,274 @@ ${
         </div>
       </div>
 
-      {/* Section 2: Bioscience Skills Workbench (PubChem Chemical Inspector + Europe PMC Literature) */}
+      {/* Section 2: Comprehensive Formatted PDF Report Builder & Live A4 Preview */}
+      <div
+        className={`rounded-xl border p-6 ${
+          darkMode
+            ? 'bg-slate-900 border-slate-800'
+            : 'bg-white border-slate-200'
+        }`}
+        data-testid="academic-pdf-report-section"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-4 pb-4 mb-5 border-b border-slate-200 dark:border-slate-800">
+          <div>
+            <h3 className="text-base sm:text-lg font-bold flex items-center gap-2">
+              <FileCheck2 className="w-5 h-5 text-teal-600 shrink-0" />
+              <span>
+                منشئ التقرير العلمي المنسق للطباعة والتسليم الأكاديمي (Formatted
+                Academic PDF Report)
+              </span>
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              يُصدر تقريراً رسمياً من صفحتين (A4 High-DPI) يتضمن ترويسة الجامعة،
+              جداول النتائج، المخططات البيانية المدمجة، المناقشة العلمية، وسجل
+              محطات الرصد الميداني
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowReportPreview((prev) => !prev)}
+              aria-expanded={showReportPreview}
+              className={`px-3.5 py-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                darkMode
+                  ? 'border-slate-700 bg-slate-950 text-slate-200 hover:bg-slate-800'
+                  : 'border-slate-300 bg-slate-50 text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <Eye className="w-3.5 h-3.5 text-teal-600" />
+              <span>
+                {showReportPreview
+                  ? 'إخفاء المعاينة الطباعية'
+                  : 'عرض معاينة صفحات التقرير (A4)'}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDownloadPdfReport}
+              disabled={isExportingPdf}
+              data-testid="download-academic-pdf-btn"
+              className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>
+                {isExportingPdf
+                  ? 'جاري التصدير...'
+                  : 'توليد وتنزيل التقرير بصيغة PDF'}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Status Confirmation Alert after PDF Download */}
+        {pdfExportSuccess && (
+          <div
+            role="status"
+            data-testid="pdf-export-success-banner"
+            className={`mb-5 p-3.5 rounded-xl border flex flex-wrap items-center justify-between gap-3 text-xs ${
+              darkMode
+                ? 'bg-emerald-950/60 border-emerald-800 text-emerald-200'
+                : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+            }`}
+          >
+            <div className="flex items-center gap-2 font-semibold">
+              <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>
+                تم توليد وتنزيل التقرير الأكاديمي المنسق بنجاح:
+                <code className="mx-1.5 font-mono font-bold">
+                  EcoBio_AI_Academic_Report_Moamen_Khalaf.pdf
+                </code>
+                (صفحتان A4 شاملة الجداول والمخططات البيانية)
+              </span>
+            </div>
+            <span className="font-mono text-[11px]">
+              متوسط الكفاءة الموثق: {reportStats.avgEfficiency}% · المطابقة:{' '}
+              {reportStats.complianceRate}%
+            </span>
+          </div>
+        )}
+
+        {/* Academic Submission Metadata Customization Form */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div>
+            <label
+              htmlFor="pdf-university-input"
+              className="block text-xs font-semibold mb-1 text-slate-600 dark:text-slate-300"
+            >
+              الجامعة / المؤسسة الأكاديمية
+            </label>
+            <input
+              id="pdf-university-input"
+              type="text"
+              value={reportMeta.university}
+              onChange={(e) =>
+                setReportMeta((prev) => ({
+                  ...prev,
+                  university: e.target.value,
+                }))
+              }
+              className={`w-full rounded-lg border px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                darkMode
+                  ? 'bg-slate-950 border-slate-700 text-slate-100'
+                  : 'bg-slate-50 border-slate-300 text-slate-900'
+              }`}
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="pdf-researcher-input"
+              className="block text-xs font-semibold mb-1 text-slate-600 dark:text-slate-300"
+            >
+              إعداد الباحث (طالب مشروع التخرج)
+            </label>
+            <input
+              id="pdf-researcher-input"
+              type="text"
+              value={reportMeta.researcherName}
+              onChange={(e) =>
+                setReportMeta((prev) => ({
+                  ...prev,
+                  researcherName: e.target.value,
+                }))
+              }
+              className={`w-full rounded-lg border px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                darkMode
+                  ? 'bg-slate-950 border-slate-700 text-slate-100'
+                  : 'bg-slate-50 border-slate-300 text-slate-900'
+              }`}
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="pdf-supervisor-input"
+              className="block text-xs font-semibold mb-1 text-slate-600 dark:text-slate-300"
+            >
+              الأستاذ المشرف / اللجنة العلمية
+            </label>
+            <input
+              id="pdf-supervisor-input"
+              type="text"
+              value={reportMeta.supervisorName}
+              onChange={(e) =>
+                setReportMeta((prev) => ({
+                  ...prev,
+                  supervisorName: e.target.value,
+                }))
+              }
+              className={`w-full rounded-lg border px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                darkMode
+                  ? 'bg-slate-950 border-slate-700 text-slate-100'
+                  : 'bg-slate-50 border-slate-300 text-slate-900'
+              }`}
+            />
+          </div>
+        </div>
+
+        {/* Report Content Checkboxes & Summary Strip */}
+        <div
+          className={`p-3.5 rounded-xl border mb-6 flex flex-wrap items-center justify-between gap-4 text-xs ${
+            darkMode
+              ? 'bg-slate-950 border-slate-800'
+              : 'bg-slate-50 border-slate-200'
+          }`}
+        >
+          <div className="flex flex-wrap items-center gap-5">
+            <span className="font-bold flex items-center gap-1.5 text-slate-700 dark:text-slate-200">
+              <Sliders className="w-3.5 h-3.5 text-teal-600" />
+              <span>محتويات التقرير المرفقة:</span>
+            </span>
+
+            <label className="inline-flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={reportMeta.includeCharts}
+                onChange={(e) =>
+                  setReportMeta((prev) => ({
+                    ...prev,
+                    includeCharts: e.target.checked,
+                  }))
+                }
+                className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+              />
+              <span>
+                تضمين المخططات البيانية (مخطط كفاءة الإزالة + منحنى الجرعة
+                المثالية)
+              </span>
+            </label>
+
+            <label className="inline-flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={reportMeta.includeStations}
+                onChange={(e) =>
+                  setReportMeta((prev) => ({
+                    ...prev,
+                    includeStations: e.target.checked,
+                  }))
+                }
+                className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+              />
+              <span>
+                تضمين جدول محطات الرصد الميداني في تكريت ({stations.length}{' '}
+                محطات)
+              </span>
+            </label>
+          </div>
+
+          <div className="font-mono text-slate-500 dark:text-slate-400">
+            حجم الورق: A4 Portrait (210×297 mm) · عدد الصفحات: 2 صفحات
+          </div>
+        </div>
+
+        {/* Live 2-Page A4 Visual Preview */}
+        {showReportPreview && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-semibold text-slate-600 dark:text-slate-300">
+                <span>
+                  الصفحة (1): الترويسة الأكاديمية، ملخص المؤشرات، جدول التجارب،
+                  والمخططات البيانية
+                </span>
+                <span className="font-mono text-[11px] text-emerald-600 dark:text-emerald-400">
+                  Page 1 / 2
+                </span>
+              </div>
+              <div className="rounded-xl overflow-hidden border border-slate-300 dark:border-slate-700 bg-white shadow-xs">
+                <canvas
+                  ref={page1CanvasRef}
+                  data-testid="pdf-preview-page-1"
+                  className="w-full h-auto block"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-semibold text-slate-600 dark:text-slate-300">
+                <span>
+                  الصفحة (2): فصل النتائج والمناقشة العلمية، جدول محطات الرصد،
+                  واعتماد اللجنة
+                </span>
+                <span className="font-mono text-[11px] text-teal-600 dark:text-teal-400">
+                  Page 2 / 2
+                </span>
+              </div>
+              <div className="rounded-xl overflow-hidden border border-slate-300 dark:border-slate-700 bg-white shadow-xs">
+                <canvas
+                  ref={page2CanvasRef}
+                  data-testid="pdf-preview-page-2"
+                  className="w-full h-auto block"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Section 3: Bioscience Skills Workbench (PubChem Chemical Inspector + Europe PMC Literature) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         {/* PubChem Chemical & Coagulant Inspector (6 cols) */}
         <div

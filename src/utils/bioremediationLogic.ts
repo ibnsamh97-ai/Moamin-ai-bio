@@ -443,6 +443,48 @@ export function computeWaterQualityIndex(
   return { wqi, pollutionLevel: 'high' };
 }
 
+/**
+ * Pure helper to compute academic report summary statistics for PDF submission.
+ */
+export function computeAcademicReportStats(
+  records: ExperimentRecord[],
+  stations: SamplingStation[],
+  simulationResult: SimulationResult
+) {
+  const totalExperiments = records.length;
+  const avgEfficiency =
+    totalExperiments > 0
+      ? Number(
+          (
+            records.reduce((acc, r) => acc + r.efficiency, 0) / totalExperiments
+          ).toFixed(2)
+        )
+      : 0;
+  const compliantCount = records.filter((r) => r.isCompliant).length;
+  const complianceRate =
+    totalExperiments > 0
+      ? Number(((compliantCount / totalExperiments) * 100).toFixed(1))
+      : 0;
+  const highestRecord =
+    totalExperiments > 0
+      ? [...records].sort((a, b) => b.efficiency - a.efficiency)[0]
+      : null;
+
+  return {
+    totalExperiments,
+    avgEfficiency,
+    compliantCount,
+    complianceRate,
+    highestPollutant: highestRecord?.pollutantName ?? 'غير محدد',
+    highestEfficiency: highestRecord?.efficiency ?? 0,
+    optimalDose: simulationResult.optimalDose,
+    optimalTime: simulationResult.optimalTime,
+    optimalPh: simulationResult.optimalPh,
+    maxPredictedEfficiency: simulationResult.maxPredictedEfficiency,
+    totalStations: stations.length,
+  };
+}
+
 export const INITIAL_EXPERIMENT_RECORDS: ExperimentRecord[] = [
   {
     id: 'exp-1',
