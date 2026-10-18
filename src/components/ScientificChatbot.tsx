@@ -70,12 +70,12 @@ export const GEMINI_MODEL_OPTIONS: Array<{
 }> = [
   {
     id: 'gemini-3.8-flash',
-    label: 'gemini-3.8-flash (متوازن للمهام العامة)',
+    label: 'gemini-3.8-flash (متوازن وذكي)',
     desc: 'استجابة علمية دقيقة ومتوازنة للمحادثات المتعددة',
   },
   {
     id: 'gemini-4-argon',
-    label: 'gemini-4-argon (للمهام المعقدة والاستنتاج)',
+    label: 'gemini-4-argon (تفكير عميق)',
     desc: 'تفكير تحليلي متقدم للمسائل الإحصائية والكيميائية المعقدة',
   },
   {

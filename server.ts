@@ -481,6 +481,9 @@ app.post('/api/gemini/chat-stream', async (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
+  if (typeof res.flushHeaders === 'function') {
+    res.flushHeaders();
+  }
 
   const ai = getGeminiClient();
   const formattedContents = Array.isArray(messages)
@@ -500,7 +503,11 @@ app.post('/api/gemini/chat-stream', async (req, res) => {
         };
         if (modelName === 'gemini-4-argon') {
           config.thinkingConfig = {
-            thinkingLevel: ThinkingLevel.HIGH,
+            thinkingLevel: ThinkingLevel.LOW,
+          };
+        } else if (modelName === 'gemini-3.8-flash') {
+          config.thinkingConfig = {
+            thinkingLevel: ThinkingLevel.LOW,
           };
         }
 
